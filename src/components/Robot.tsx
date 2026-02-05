@@ -4,8 +4,8 @@ import { Mesh, Group, Vector3, Quaternion } from "three";
 import { RigidBody, RapierRigidBody, CylinderCollider } from "@react-three/rapier";
 import { useStore } from "../store";
 
-// Memory throttle - outside component to avoid re-renders
-const lastSeen: { [key: string]: number } = {};
+// Cooldown for memory prevents spamming (outside component)
+const lastSeen: Record<string, number> = {};
 
 type RobotState = 'IDLE' | 'MOVING';
 
@@ -24,15 +24,15 @@ export const Robot = (props: any) => {
     // Smooth rotation target
     const targetRotation = useRef(new Quaternion());
 
-    // Handle sensor detection - use getState() to avoid hook issues
+    // Vision detector - using getState to avoid triggering re-renders of the robot
     const handleSensorEnter = (payload: any) => {
         const userData = payload.other.rigidBodyObject?.userData;
         if (userData && (userData.type === 'object' || userData.type === 'critter')) {
             const name = userData.name;
             const now = Date.now();
-            if (!lastSeen[name] || now - lastSeen[name] > 15000) {
-                console.log("Robot saw:", name);
-                useStore.getState().addMemory(`Spotted ${name}`);
+            if (!lastSeen[name] || now - lastSeen[name] > 20000) { // 20s cooldown
+                console.log("Robot detected:", name);
+                useStore.getState().addMemory(`I see ${name}`);
                 lastSeen[name] = now;
             }
         }
@@ -146,10 +146,10 @@ export const Robot = (props: any) => {
                     </mesh>
                 </group>
 
-                {/* Vision Sensor */}
+                {/* Vision Sensor - slightly narrower and longer for better focus */}
                 <CylinderCollider
-                    args={[0.3, 2.5]}
-                    position={[0, 0.3, 2]}
+                    args={[0.2, 3.0]}
+                    position={[0, 0.4, 2.5]}
                     rotation={[Math.PI / 2, 0, 0]}
                     sensor
                     onIntersectionEnter={handleSensorEnter}

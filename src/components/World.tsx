@@ -18,7 +18,7 @@ export const World = () => {
 
             {/* Floor */}
             <RigidBody type="fixed" colliders={false}>
-                <CuboidCollider args={[20, 0.1, 20]} position={[0, -0.1, 0]} />
+                <CuboidCollider args={[100, 0.1, 100]} position={[0, -0.1, 0]} />
                 <mesh position={[0, -0.1, 0]} receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
                     <planeGeometry args={[50, 50]} />
                     <meshBasicMaterial color="#f5f5f5" />

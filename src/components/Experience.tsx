@@ -19,10 +19,10 @@ export const Experience = () => {
                 <Monolith position={[-3, 1.5, 6]} rotation={[0, 0.5, 0]} />
                 <DataTower position={[8, 0, -8]} />
 
-                {/* Wild Critters */}
-                <Critter position={[3, 0.5, 3]} />
-                <Critter position={[-4, 0.5, 2]} />
-                <Critter position={[0, 0.5, -5]} />
+                {/* Wild Critters - stay near their spawn points */}
+                <Critter position={[3, 0.5, 3]} name="Critter-A" />
+                <Critter position={[-4, 0.5, 2]} name="Critter-B" />
+                <Critter position={[0, 0.5, -5]} name="Critter-C" />
 
                 {/* The Agent */}
                 <Robot />
