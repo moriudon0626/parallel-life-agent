@@ -1,8 +1,7 @@
 import { useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Mesh, Group, Vector3, Quaternion } from "three";
-import { RigidBody, RapierRigidBody, CylinderCollider } from "@react-three/rapier";
-import { useStore } from "../store";
+import { RigidBody, RapierRigidBody } from "@react-three/rapier";
 
 type RobotState = 'IDLE' | 'MOVING';
 
@@ -10,7 +9,6 @@ export const Robot = (props: any) => {
     const bodyRef = useRef<Mesh>(null!);
     const headRef = useRef<Group>(null!);
     const rigidRef = useRef<RapierRigidBody>(null!);
-    const addMemory = useStore(state => state.addMemory);
 
     // AI State
     const [robotState, setRobotState] = useState<RobotState>('IDLE');
@@ -21,9 +19,6 @@ export const Robot = (props: any) => {
 
     // Smooth rotation target
     const targetRotation = useRef(new Quaternion());
-
-    // Memory throttle
-    const lastSeen = useRef<{ [key: string]: number }>({});
 
     useFrame((state) => {
         const t = state.clock.getElapsedTime();
@@ -82,20 +77,6 @@ export const Robot = (props: any) => {
         }
     });
 
-    // Handle sensor detection
-    const handleSensorEnter = (payload: any) => {
-        const userData = payload.other.rigidBodyObject?.userData;
-        if (userData && (userData.type === 'object' || userData.type === 'critter')) {
-            const name = userData.name;
-            const now = Date.now();
-            if (!lastSeen.current[name] || now - lastSeen.current[name] > 15000) {
-                console.log("Robot saw:", name);
-                addMemory(`Spotted ${name}`);
-                lastSeen.current[name] = now;
-            }
-        }
-    };
-
     return (
         <RigidBody
             ref={rigidRef}
@@ -146,15 +127,6 @@ export const Robot = (props: any) => {
                         <meshStandardMaterial color="red" emissive="red" emissiveIntensity={2} toneMapped={false} />
                     </mesh>
                 </group>
-
-                {/* Vision Sensor */}
-                <CylinderCollider
-                    args={[0.3, 2.5]}
-                    position={[0, 0.3, 2]}
-                    rotation={[Math.PI / 2, 0, 0]}
-                    sensor
-                    onIntersectionEnter={handleSensorEnter}
-                />
             </group>
         </RigidBody>
     );
