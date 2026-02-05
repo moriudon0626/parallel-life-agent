@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>parallel-life-agent</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div id="global-error-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 9999; padding: 20px; color: red;">
+      <h1>Application Failed to Start</h1>
+      <pre id="global-error-message"></pre>
+    </div>
+    <script>
+      window.onerror = function(msg, url, line, col, error) {
+        document.getElementById('global-error-overlay').style.display = 'block';
+        document.getElementById('global-error-message').textContent = msg + '\n\n' + url + ':' + line + ':' + col + '\n\n' + (error ? error.stack : '');
+      };
+      // Catch unhandled promise rejections
+      window.onunhandledrejection = function(event) {
+        document.getElementById('global-error-overlay').style.display = 'block';
+        document.getElementById('global-error-message').textContent = 'Unhandled Rejection: ' + event.reason;
+      };
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
