@@ -67,16 +67,26 @@ export const Robot = (props: any) => {
             const currentTranslation = rigidRef.current.translation();
             const currentPos = new Vector3(currentTranslation.x, currentTranslation.y, currentTranslation.z);
 
+            // Safety Reset: If fallen below floor
+            if (currentPos.y < -5) {
+                rigidRef.current.setTranslation({ x: 0, y: 5, z: 0 }, true);
+                rigidRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
+            }
+
             if (robotState === 'MOVING' && targetPos) {
-                const dist = currentPos.distanceTo(targetPos);
+                // Ignore Y when calculating distance to target
+                const horizPos = currentPos.clone().setY(0);
+                const horizTarget = targetPos.clone().setY(0);
+                const dist = horizPos.distanceTo(horizTarget);
+
                 if (dist < 1.0) {
                     setRobotState('IDLE');
                     setTargetPos(null);
                     nextDecisionTime.current = t + 2 + Math.random() * 2;
                 } else {
                     const direction = targetPos.clone().sub(currentPos).normalize();
-                    const speed = 3.0;
-                    const impulse = direction.multiplyScalar(speed * 0.02);
+                    const speed = 4.0; // Slightly faster
+                    const impulse = direction.multiplyScalar(speed * 0.1); // Stronger impulse
                     rigidRef.current.applyImpulse({ x: impulse.x, y: 0, z: impulse.z }, true);
 
                     const angle = Math.atan2(direction.x, direction.z);
@@ -107,7 +117,7 @@ export const Robot = (props: any) => {
             enabledRotations={[false, true, false]}
             {...props}
         >
-            <group>
+            <group scale={[2, 2, 2]}>
                 {/* Body */}
                 <mesh ref={bodyRef} castShadow receiveShadow position={[0, 0, 0]}>
                     <dodecahedronGeometry args={[0.5, 0]} />
@@ -146,10 +156,10 @@ export const Robot = (props: any) => {
                     </mesh>
                 </group>
 
-                {/* Vision Sensor - slightly narrower and longer for better focus */}
+                {/* Vision Sensor - Thinner and higher to avoid ground contact */}
                 <CylinderCollider
-                    args={[0.2, 3.0]}
-                    position={[0, 0.4, 2.5]}
+                    args={[1.5, 0.5]}
+                    position={[0, 0, 1.5]}
                     rotation={[Math.PI / 2, 0, 0]}
                     sensor
                     onIntersectionEnter={handleSensorEnter}
