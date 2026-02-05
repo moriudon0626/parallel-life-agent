@@ -14,7 +14,7 @@ export const Crystal = ({ position }: { position: [number, number, number] }) =>
     });
 
     return (
-        <RigidBody type="fixed" colliders="hull" position={position}>
+        <RigidBody type="fixed" colliders="hull" position={position} userData={{ type: 'object', name: 'Glowing Crystal' }}>
             <Float speed={2} rotationIntensity={0.5} floatIntensity={0.5}>
                 <group ref={ref}>
                     <mesh castShadow receiveShadow>
@@ -31,7 +31,7 @@ export const Crystal = ({ position }: { position: [number, number, number] }) =>
 
 export const Monolith = ({ position, rotation = [0, 0, 0] }: { position: [number, number, number], rotation?: [number, number, number] }) => {
     return (
-        <RigidBody type="fixed" colliders="cuboid" position={position} rotation={rotation as any}>
+        <RigidBody type="fixed" colliders="cuboid" position={position} rotation={rotation as any} userData={{ type: 'object', name: 'Ancient Monolith' }}>
             <mesh castShadow receiveShadow position={[0, 1.5, 0]}>
                 <boxGeometry args={[1, 3, 0.4]} />
                 <meshStandardMaterial color="#111111" roughness={0.05} metalness={0.8} />
@@ -42,7 +42,7 @@ export const Monolith = ({ position, rotation = [0, 0, 0] }: { position: [number
 
 export const DataTower = ({ position }: { position: [number, number, number] }) => {
     return (
-        <RigidBody type="fixed" colliders="hull" position={position}>
+        <RigidBody type="fixed" colliders="hull" position={position} userData={{ type: 'object', name: 'Data Tower' }}>
             <group>
                 {/* Base */}
                 <mesh castShadow receiveShadow position={[0, 0.5, 0]}>
