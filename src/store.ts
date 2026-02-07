@@ -9,6 +9,8 @@ import { createDefaultNeeds } from './lib/needs';
 import type { ResourceNode } from './lib/resources';
 import { createInitialResources } from './lib/resources';
 import type { LifecycleState } from './lib/lifecycle';
+import type { RobotStatus, CritterStatus } from './lib/survival';
+import { createDefaultRobotStatus, createDefaultCritterStatus } from './lib/survival';
 
 // Prune memories: keep top N by importance, but always retain last 5 most recent
 function pruneMemories(memories: Memory[], maxCount: number): Memory[] {
@@ -228,6 +230,13 @@ interface AppState {
     entityNeeds: Record<string, NeedsState>;
     updateEntityNeeds: (entityId: string, needs: NeedsState) => void;
     getEntityNeeds: (entityId: string) => NeedsState;
+
+    // Survival System (NEW - Phase 1)
+    robotStatus: RobotStatus;
+    critterStatuses: Record<string, CritterStatus>;
+    updateRobotStatus: (status: RobotStatus) => void;
+    updateCritterStatus: (critterId: string, status: CritterStatus) => void;
+    getCritterStatus: (critterId: string) => CritterStatus;
 
     // Resource Nodes (runtime)
     resourceNodes: ResourceNode[];
@@ -459,6 +468,15 @@ export const useStore = create<AppState>()(
             })),
             getEntityNeeds: (entityId) => get().entityNeeds[entityId] || createDefaultNeeds('critter'),
 
+            // Survival System (NEW - Phase 1)
+            robotStatus: createDefaultRobotStatus(),
+            critterStatuses: {},
+            updateRobotStatus: (status) => set({ robotStatus: status }),
+            updateCritterStatus: (critterId, status) => set((state) => ({
+                critterStatuses: { ...state.critterStatuses, [critterId]: status }
+            })),
+            getCritterStatus: (critterId) => get().critterStatuses[critterId] || createDefaultCritterStatus(),
+
             // Resource Nodes (runtime)
             resourceNodes: createInitialResources(),
             updateResourceNode: (id, partial) => set((state) => ({
@@ -497,7 +515,7 @@ export const useStore = create<AppState>()(
         }),
         {
             name: 'agent-storage',
-            version: 7,
+            version: 8,
             migrate: (persistedState: any, version: number) => {
                 if (version < 2) {
                     // Migrate string[] memories to Memory[] format
@@ -564,6 +582,11 @@ export const useStore = create<AppState>()(
                 if (version < 7) {
                     persistedState.critterThoughts = persistedState.critterThoughts ?? {};
                 }
+                if (version < 8) {
+                    // Phase 1: Add survival system
+                    persistedState.robotStatus = persistedState.robotStatus ?? createDefaultRobotStatus();
+                    persistedState.critterStatuses = persistedState.critterStatuses ?? {};
+                }
                 return persistedState;
             },
             partialize: (state) => ({
@@ -594,6 +617,8 @@ export const useStore = create<AppState>()(
                 critterRegistry: state.critterRegistry,
                 robotThoughts: state.robotThoughts,
                 critterThoughts: state.critterThoughts,
+                robotStatus: state.robotStatus,
+                critterStatuses: state.critterStatuses,
             }),
         }
     )
