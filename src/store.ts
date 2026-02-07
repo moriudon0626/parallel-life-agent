@@ -514,7 +514,7 @@ export const useStore = create<AppState>()(
             }),
 
             // Ambient Sound Settings
-            ambientSoundsEnabled: true,
+            ambientSoundsEnabled: false, // Disabled by default (user request)
             ambientSoundsVolume: 0.7,
             setAmbientSoundsEnabled: (enabled) => set({ ambientSoundsEnabled: enabled }),
             setAmbientSoundsVolume: (volume) => set({ ambientSoundsVolume: volume }),
