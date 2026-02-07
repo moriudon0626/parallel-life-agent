@@ -149,7 +149,7 @@ export interface CritterRegistryEntry {
     generation: number;
 }
 
-interface AppState {
+export interface AppState {
     // Settings
     apiKey: string;
     provider: 'openai' | 'anthropic';
@@ -288,6 +288,10 @@ interface AppState {
     // Camera target (runtime, for fly-to-robot)
     cameraTarget: { x: number; y: number; z: number } | null;
     setCameraTarget: (target: { x: number; y: number; z: number } | null) => void;
+
+    // Camera 2D target (runtime, for 2D mode locate)
+    camera2DTarget: { x: number; z: number; zoom: number } | null;
+    setCamera2DTarget: (target: { x: number; z: number; zoom: number } | null) => void;
 
     // User directive for robot (runtime, consumed by next thought cycle)
     userDirective: string | null;
@@ -616,6 +620,10 @@ export const useStore = create<AppState>()(
             // Camera target (runtime)
             cameraTarget: null,
             setCameraTarget: (target) => set({ cameraTarget: target }),
+
+            // Camera 2D target (runtime)
+            camera2DTarget: null,
+            setCamera2DTarget: (target) => set({ camera2DTarget: target }),
 
             // User directive (runtime)
             userDirective: null,

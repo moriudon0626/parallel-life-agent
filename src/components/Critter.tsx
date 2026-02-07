@@ -15,6 +15,7 @@ import { decayNeeds, satisfyNeed, computeDesires, needsToDialogueContext, create
 import { tickLifecycle, checkReproduction, mutateColor, sicknessToDialogueContext, getSpeedMultiplier, createLifecycleState, type LifecycleState } from '../lib/lifecycle';
 import { getNearbyResources, type ResourceType } from '../lib/resources';
 import { getTerrainHeight } from '../lib/terrain';
+import { isWeatherEventActive, SHELTER_TYPES } from '../lib/environment';
 
 interface CritterProps {
     position: [number, number, number];
@@ -413,6 +414,68 @@ ${directionPrompt}1〜2文で。大げさ禁止。日本語で。
                         return prev - 0.1;
                     });
                 }, 300);
+            }
+
+            // === ENVIRONMENTAL DAMAGE SYSTEM ===
+            if (!isDying.current) {
+                const currentWeatherEvent = storeState.currentWeatherEvent;
+                if (currentWeatherEvent && isWeatherEventActive(currentWeatherEvent, storeState.time * 3600 + storeState.day * 86400)) {
+                    // Check if critter is in shelter
+                    let inShelter = false;
+                    let shelterType: keyof typeof SHELTER_TYPES = 'none';
+
+                    if (rigidRef.current) {
+                        const rp = rigidRef.current.translation();
+                        const nearbyBuildings = storeState.buildings.filter(b => {
+                            if (!b.built) return false;
+                            const dx = b.position.x - rp.x;
+                            const dz = b.position.z - rp.z;
+                            const dist = Math.sqrt(dx * dx + dz * dz);
+                            return dist < b.radius;
+                        });
+
+                        if (nearbyBuildings.length > 0) {
+                            inShelter = true;
+                            const bestShelter = nearbyBuildings.reduce((best, current) => {
+                                const currentProtection = SHELTER_TYPES[current.type as keyof typeof SHELTER_TYPES]?.damageReduction || 0;
+                                const bestProtection = SHELTER_TYPES[best.type as keyof typeof SHELTER_TYPES]?.damageReduction || 0;
+                                return currentProtection > bestProtection ? current : best;
+                            });
+                            shelterType = bestShelter.type as keyof typeof SHELTER_TYPES;
+                        }
+                    }
+
+                    // Apply weather damage to health
+                    const protection = SHELTER_TYPES[shelterType];
+                    const effectiveDamage = inShelter
+                        ? currentWeatherEvent.effects.damagePerSecond * (1 - protection.damageReduction)
+                        : currentWeatherEvent.effects.damagePerSecond;
+
+                    if (effectiveDamage > 0) {
+                        const damageAmount = effectiveDamage * 1.0; // 1 second interval
+                        const newHealth = Math.max(0, lifecycleRef.current.health - damageAmount);
+
+                        lifecycleRef.current = {
+                            ...lifecycleRef.current,
+                            health: newHealth,
+                        };
+
+                        // Log damage every 10 seconds
+                        const logKey = `__critterEnvDamageLog_${name}`;
+                        const lastEnvDamageLog = (window as any)[logKey] || 0;
+                        if (t - lastEnvDamageLog > 10) {
+                            (window as any)[logKey] = t;
+                            storeState.addActivityLog({
+                                category: 'warning',
+                                importance: inShelter ? 'low' : 'high',
+                                entityId: name,
+                                content: inShelter
+                                    ? `${name}: ${currentWeatherEvent.name}の影響（シェルター内: ${(protection.damageReduction * 100).toFixed(0)}%軽減）`
+                                    : `⚠️ ${name}: ${currentWeatherEvent.name}でダメージを受けています！`,
+                            });
+                        }
+                    }
+                }
             }
 
             // Reproduction check

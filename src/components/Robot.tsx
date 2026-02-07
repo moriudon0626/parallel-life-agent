@@ -14,7 +14,9 @@ import { getNearbyElements, buildEnvContext } from '../lib/worldElements';
 import { decayNeeds, satisfyNeed, computeDesires, needsToDialogueContext, createDefaultNeeds, type NeedsState } from '../lib/needs';
 import { getNearbyResources, attemptGatherResource, consumeResource, getResourceValue } from '../lib/resources';
 import { getTerrainHeight } from '../lib/terrain';
-import { updateRobotBattery, updateRobotTemperature } from '../lib/survival';
+// import { updateRobotBattery, updateRobotTemperature } from '../lib/survival'; // Unused in 3D version
+import { isWeatherEventActive, SHELTER_TYPES } from '../lib/environment';
+import { createBuilding, canBuildHere, hasRequiredMaterials, consumeMaterials, getBuildingEffect } from '../lib/building';
 
 // Cooldown for memory and dialogue prevents spamming
 const lastSeen: Record<string, number> = {};
@@ -62,6 +64,12 @@ export const Robot = (props: any) => {
     // Resource gathering cooldown
     const gatherCooldown = useRef(0);
 
+    // Building construction cooldown
+    const buildingCooldown = useRef(0);
+
+    // Battery logging
+    const lastBatteryLog = useRef(0);
+
     // Store state with selectors
     const apiKey = useStore(s => s.apiKey);
     const provider = useStore(s => s.provider);
@@ -87,7 +95,7 @@ export const Robot = (props: any) => {
         const now = Date.now();
         const globalBusy = useStore.getState().isDialogueBusy;
 
-        if (userData && userData.type === 'critter' && !globalBusy) {
+        if (userData && userData.type === 'critter' && !globalBusy && !useStore.getState().robotStatus.malfunctioning) {
             const name = userData.name;
 
             // Handle Memory
@@ -168,7 +176,7 @@ ${name}に会った。${envContext}。
 
     // React to incoming dialogue
     useEffect(() => {
-        if (!latestIncoming || robotState === 'DIALOGUE' || !apiKey) return;
+        if (!latestIncoming || robotState === 'DIALOGUE' || !apiKey || useStore.getState().robotStatus.malfunctioning) return;
 
         if (!processedMessagesId.current.has(latestIncoming.timestamp)) {
             processedMessagesId.current.add(latestIncoming.timestamp);
@@ -219,7 +227,7 @@ ${name}に会った。${envContext}。
     const lastLogTime = useRef(0);
 
     // AI Logic
-    useFrame((state) => {
+    useFrame((state, delta) => {
         const t = state.clock.getElapsedTime();
 
         if (t - lastLogTime.current > 1.0) {
@@ -262,20 +270,32 @@ ${name}に会った。${envContext}。
 
         // Robot Status Management (battery, durability, temperature)
         const robotStatus = storeForNeeds.robotStatus;
-        const delta = state.clock.getDelta();
-        const activity: 'idle' | 'moving' | 'working' =
-            robotState === 'MOVING' ? 'moving' :
-            robotState === 'DIALOGUE' ? 'working' :
-            'idle';
+        // Activity tracking (currently unused but kept for future use)
+        // const activity: 'idle' | 'moving' | 'working' =
+        //     robotState === 'MOVING' ? 'moving' :
+        //     robotState === 'DIALOGUE' ? 'working' :
+        //     'idle';
 
-        // Simple battery drain (1% per minute)
-        const batteryDrain = 1.0 * (delta / 60); // 1% per minute
+        // Battery drain (5% per minute for visibility)
+        const batteryDrain = 5.0 * (delta / 60); // 5% per minute
         const newBattery = Math.max(0, robotStatus.battery - batteryDrain);
 
-        // Solar charging during sunny day (0.5% per minute)
+        // Solar charging during sunny day (1% per minute - less than drain)
         let finalBattery = newBattery;
         if (!isNight && storeForNeeds.weather === 'sunny') {
-            finalBattery = Math.min(100, newBattery + (0.5 * delta / 60));
+            const solarCharge = 1.0 * (delta / 60);
+            finalBattery = Math.min(100, newBattery + solarCharge);
+        }
+
+        // Charging station: if near a built charging station, charge battery
+        if (rigidRef.current) {
+            const rp = rigidRef.current.translation();
+            const chargeRate = getBuildingEffect(storeForNeeds.buildings, { x: rp.x, z: rp.z }, 'chargeRate');
+            if (chargeRate > 0) {
+                // chargeRate is % per second (e.g., 0.3 = 30%/s) - cap at 20%/s for balance
+                const effectiveRate = Math.min(chargeRate, 0.2) * 100;
+                finalBattery = Math.min(100, finalBattery + effectiveRate * delta);
+            }
         }
 
         // Update temperature based on environment
@@ -296,6 +316,12 @@ ${name}に会った。${envContext}。
             repairParts: robotStatus.repairParts,
         });
 
+        // Debug log every second
+        if (!lastBatteryLog.current || t - lastBatteryLog.current >= 1.0) {
+            lastBatteryLog.current = t;
+            console.log('[Robot] Battery:', finalBattery.toFixed(2), '%', '| Drain/frame:', batteryDrain.toFixed(4), '%', '| Time:', t.toFixed(1), 's');
+        }
+
         // Log critical state changes
         if (!robotStatus.malfunctioning && malfunctioning) {
             storeForNeeds.addActivityLog({
@@ -304,6 +330,66 @@ ${name}に会った。${envContext}。
                 entityId: 'robot',
                 content: '⚠️ ロボットのバッテリーが切れました！機能停止中...',
             });
+        }
+
+        // === ENVIRONMENTAL DAMAGE SYSTEM ===
+        const currentWeatherEvent = storeForNeeds.currentWeatherEvent;
+        if (currentWeatherEvent && isWeatherEventActive(currentWeatherEvent, storeForNeeds.time * 3600 + storeForNeeds.day * 86400)) {
+            // Check if robot is in shelter
+            let inShelter = false;
+            let shelterType: keyof typeof SHELTER_TYPES = 'none';
+
+            if (rigidRef.current) {
+                const rp = rigidRef.current.translation();
+                const nearbyBuildings = storeForNeeds.buildings.filter(b => {
+                    if (!b.built) return false;
+                    const dx = b.position.x - rp.x;
+                    const dz = b.position.z - rp.z;
+                    const dist = Math.sqrt(dx * dx + dz * dz);
+                    return dist < b.radius;
+                });
+
+                if (nearbyBuildings.length > 0) {
+                    inShelter = true;
+                    // Use best available shelter
+                    const bestShelter = nearbyBuildings.reduce((best, current) => {
+                        const currentProtection = SHELTER_TYPES[current.type as keyof typeof SHELTER_TYPES]?.damageReduction || 0;
+                        const bestProtection = SHELTER_TYPES[best.type as keyof typeof SHELTER_TYPES]?.damageReduction || 0;
+                        return currentProtection > bestProtection ? current : best;
+                    });
+                    shelterType = bestShelter.type as keyof typeof SHELTER_TYPES;
+                }
+            }
+
+            // Apply weather damage
+            const protection = SHELTER_TYPES[shelterType];
+            const effectiveDamage = inShelter
+                ? currentWeatherEvent.effects.damagePerSecond * (1 - protection.damageReduction)
+                : currentWeatherEvent.effects.damagePerSecond;
+
+            if (effectiveDamage > 0) {
+                const damageAmount = effectiveDamage * delta;
+                const newDurability = Math.max(0, storeForNeeds.robotStatus.durability - damageAmount);
+
+                storeForNeeds.updateRobotStatus({
+                    ...storeForNeeds.robotStatus,
+                    durability: newDurability,
+                });
+
+                // Log damage every 5 seconds
+                const lastEnvDamageLog = (window as any).__robotEnvDamageLog || 0;
+                if (t - lastEnvDamageLog > 5) {
+                    (window as any).__robotEnvDamageLog = t;
+                    storeForNeeds.addActivityLog({
+                        category: 'warning',
+                        importance: inShelter ? 'low' : 'high',
+                        entityId: 'robot',
+                        content: inShelter
+                            ? `${currentWeatherEvent.name}の影響を受けています（シェルター内: ${(protection.damageReduction * 100).toFixed(0)}%軽減）`
+                            : `⚠️ ${currentWeatherEvent.name}で耐久度がダメージを受けています！シェルターに避難してください`,
+                    });
+                }
+            }
         }
 
         // Energy node charging: if near energy node, recharge
@@ -336,7 +422,13 @@ ${name}に会った。${envContext}。
                             // Add to inventory
                             const materialType = node.type as 'scrap_metal' | 'fiber' | 'crystal';
                             const effectiveAmount = Math.max(1, Math.floor(getResourceValue(node, result.amount) * 10));
+
+                            console.log('[Robot] Gathering:', node.name, '| Type:', materialType, '| Amount:', effectiveAmount);
                             storeForNeeds.addInventoryItem(materialType, effectiveAmount);
+
+                            // Debug: Check inventory after adding
+                            const currentInventory = useStore.getState().inventory;
+                            console.log('[Robot] Current inventory:', currentInventory);
 
                             // Consume from node
                             const updated = consumeResource(storeForNeeds.resourceNodes, node.id, result.amount);
@@ -382,6 +474,88 @@ ${name}に会った。${envContext}。
                     }
                 }
             }
+
+            // === BUILDING CONSTRUCTION SYSTEM ===
+            // Check for auto-building (every 30 seconds)
+            if (t - buildingCooldown.current > 30) {
+                buildingCooldown.current = t;
+                const store = useStore.getState();
+                const inventory = store.inventory;
+                const buildings = store.buildings;
+
+                // Auto-build tent if none exists and materials are available
+                const hasTent = buildings.some(b => b.type === 'tent');
+                if (!hasTent) {
+                    const tentTemplate = createBuilding('tent', { x: rp.x, y: 0, z: rp.z });
+
+                    if (hasRequiredMaterials(tentTemplate, inventory) && canBuildHere({ x: rp.x, z: rp.z }, buildings)) {
+                        // Consume materials
+                        const newInventory = consumeMaterials(tentTemplate, inventory);
+                        Object.keys(newInventory).forEach(key => {
+                            store.addInventoryItem(key, newInventory[key] - (inventory[key] || 0));
+                        });
+
+                        // Add building to store (with constructionProgress = 0, will be updated by BuildingManager)
+                        const newBuilding = {
+                            ...tentTemplate,
+                            constructionProgress: 0.01, // Start construction
+                        };
+                        store.addBuilding(newBuilding);
+
+                        // Log construction start
+                        store.addActivityLog({
+                            category: 'build',
+                            importance: 'high',
+                            entityId: 'robot',
+                            content: `🏗️ ${tentTemplate.name}の建設を開始しました！（完成まで約${tentTemplate.constructionTime}秒）`,
+                        });
+
+                        store.addRobotMemory(createMemory(
+                            `${tentTemplate.name}の建設を開始した`,
+                            'event',
+                            ['building'],
+                            0.8
+                        ));
+
+                        console.log('[Robot] Building started:', tentTemplate.name);
+                    }
+                }
+
+                // Auto-build charging station if none exists and materials are available
+                const hasChargingStation = buildings.some(b => b.type === 'charging_station');
+                if (!hasChargingStation && storeForNeeds.robotStatus.battery < 50) {
+                    const stationTemplate = createBuilding('charging_station', { x: rp.x, y: 0, z: rp.z });
+
+                    if (hasRequiredMaterials(stationTemplate, inventory) && canBuildHere({ x: rp.x, z: rp.z }, buildings)) {
+                        const newInventory = consumeMaterials(stationTemplate, inventory);
+                        Object.keys(newInventory).forEach(key => {
+                            store.addInventoryItem(key, newInventory[key] - (inventory[key] || 0));
+                        });
+
+                        const newBuilding = {
+                            ...stationTemplate,
+                            constructionProgress: 0.01,
+                        };
+                        store.addBuilding(newBuilding);
+
+                        store.addActivityLog({
+                            category: 'build',
+                            importance: 'high',
+                            entityId: 'robot',
+                            content: `🏗️ ${stationTemplate.name}の建設を開始しました！`,
+                        });
+
+                        store.addRobotMemory(createMemory(
+                            `${stationTemplate.name}の建設を開始した`,
+                            'event',
+                            ['building'],
+                            0.8
+                        ));
+
+                        console.log('[Robot] Building started:', stationTemplate.name);
+                    }
+                }
+            }
         }
 
         // Position reporting (every 0.5s)
@@ -410,7 +584,8 @@ ${name}に会った。${envContext}。
         }
 
         // --- AI Thinking Loop (every 20 real seconds = ~1 game hour at 3x speed) ---
-        if (apiKey && !isThinking.current && t - lastThinkTime.current > 20) {
+        // Skip thinking if battery is dead
+        if (apiKey && !isThinking.current && t - lastThinkTime.current > 20 && !storeForNeeds.robotStatus.malfunctioning) {
             lastThinkTime.current = t;
             isThinking.current = true;
 
@@ -515,7 +690,8 @@ ${memContext}`;
         }
 
         // --- Activity-Based AI Logic ---
-        if (robotState !== 'DIALOGUE' && t > nextDecisionTime.current) {
+        // Skip activity decisions if battery is dead
+        if (robotState !== 'DIALOGUE' && t > nextDecisionTime.current && !storeForNeeds.robotStatus.malfunctioning) {
             const store = useStore.getState();
             const currentActivity = store.entityActivities['robot'];
 
@@ -642,6 +818,13 @@ ${memContext}`;
                 setTargetPos(null);
                 nextDecisionTime.current = t + 2 + Math.random() * 2;
             }
+        }
+
+        // --- Shutdown: stop movement when battery is dead ---
+        if (storeForNeeds.robotStatus.malfunctioning && rigidRef.current) {
+            rigidRef.current.setLinvel({ x: 0, y: rigidRef.current.linvel().y, z: 0 }, true);
+            setRobotState('IDLE');
+            setTargetPos(null);
         }
 
         // --- Physics & Movement ---

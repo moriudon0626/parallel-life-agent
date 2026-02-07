@@ -15,13 +15,13 @@ export function useGameLoop(
   callback: (delta: number, stats: GameLoopStats) => void,
   targetFPS: number = 60
 ) {
-  const requestRef = useRef<number>();
-  const previousTimeRef = useRef<number>();
+  const requestRef = useRef<number | undefined>(undefined);
+  const previousTimeRef = useRef<number | undefined>(undefined);
   const callbackRef = useRef(callback);
   const statsRef = useRef<GameLoopStats>({ fps: 0, delta: 0, frames: 0 });
   const fpsCounterRef = useRef({ frames: 0, lastTime: 0 });
 
-  const targetFrameTime = 1000 / targetFPS;
+  // const targetFrameTime = 1000 / targetFPS; // Reserved for future frame limiting
 
   // Keep callback ref up to date
   useEffect(() => {
