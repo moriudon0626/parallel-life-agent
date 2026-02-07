@@ -206,6 +206,21 @@ interface AppState {
     entityPositions: Record<string, { x: number; z: number }>;
     updateEntityPosition: (id: string, x: number, z: number) => void;
 
+    // === 2D PROTOTYPE: Robot Entity (runtime only, managed by RobotEntity.ts) ===
+    robot: {
+        position: { x: number; z: number };
+        velocity: { x: number; z: number };
+        rotation: number;
+        state: 'IDLE' | 'MOVING' | 'DIALOGUE';
+        emotion: EmotionState;
+        needs: any; // NeedsState
+        targetPos: { x: number; z: number } | null;
+        lookAtTarget: { x: number; z: number } | null;
+        currentThought: string | null;
+        animationTime: number;
+        bobOffset: number;
+    } | null;
+
     // Activity System (runtime only, not persisted)
     entityActivities: Record<string, ActivityState>;
     setEntityActivity: (id: string, activity: ActivityState) => void;
@@ -387,6 +402,31 @@ export const useStore = create<AppState>()(
                     { id: 'Critter-D', name: 'Critter-D', color: '#a78bfa', spawnPosition: [6, 0.5, -3] as [number, number, number], isAlive: true, generation: 0 },
                     { id: 'Critter-E', name: 'Critter-E', color: '#f97316', spawnPosition: [-6, 0.5, -4] as [number, number, number], isAlive: true, generation: 0 },
                 ],
+                // Reset survival & game systems
+                robotStatus: createDefaultRobotStatus(),
+                critterStatuses: {},
+                buildings: [],
+                activityLog: [],
+                realtimeScore: {
+                    current: { survival: 0, development: 0, combat: 0, knowledge: 0, total: 0 },
+                    rank: { current: 'D', nextRank: 'C', pointsToNext: 1000, progress: 0 },
+                    stats: {
+                        currentDay: 0,
+                        population: 0,
+                        knowledgeCount: 0,
+                        structureCount: 0,
+                        deathCount: 0,
+                        combatWins: 0,
+                        catastrophesSurvived: 0,
+                        robotFunctional: true,
+                    },
+                    recentChanges: [],
+                },
+                timeline: [],
+                achievements: [],
+                combatStats: { wins: 0, losses: 0, catastrophesSurvived: 0 },
+                inventory: { fiber: 0, scrap_metal: 0, crystal: 0, high_quality_parts: 0 },
+                currentWeatherEvent: null,
             }),
 
             robotMemories: [],
@@ -425,6 +465,9 @@ export const useStore = create<AppState>()(
             updateEntityPosition: (id, x, z) => set((state) => ({
                 entityPositions: { ...state.entityPositions, [id]: { x, z } }
             })),
+
+            // 2D Prototype: Robot Entity (runtime, managed by RobotEntity.ts)
+            robot: null,
 
             // Activity System (runtime)
             entityActivities: {},
