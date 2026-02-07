@@ -59,6 +59,9 @@ export const Robot = (props: any) => {
     const [currentThought, setCurrentThought] = useState<string | null>(null);
     const aiIntent = useRef<ThoughtResult | null>(null);
 
+    // Resource gathering cooldown
+    const gatherCooldown = useRef(0);
+
     // Store state with selectors
     const apiKey = useStore(s => s.apiKey);
     const provider = useStore(s => s.provider);
@@ -317,7 +320,6 @@ ${name}に会った。${envContext}。
             }
 
             // Resource gathering: materials for building (check every 2 seconds)
-            const gatherCooldown = useRef(0);
             if (t - gatherCooldown.current > 2) { // Check every 2 seconds
                 const materialNodes = getNearbyResources(storeForNeeds.resourceNodes, rp.x, rp.z, 5.0, ['scrap_metal', 'fiber', 'crystal']);
 

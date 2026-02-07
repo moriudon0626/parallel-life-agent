@@ -13,8 +13,12 @@ import "@babylonjs/core/Lights/directionalLight";
 import "@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent";
 import HavokPhysics from "@babylonjs/havok";
 import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
-import { createTerrain, createPhysicsTestSphere } from "./Terrain";
+import { createTerrain } from "./Terrain";
 import { createLighting } from "./Lighting";
+import { createEnvironmentManager } from "./EnvironmentManager";
+import { createRobot } from "./Robot";
+import { createVegetation } from "./Vegetation";
+import { createEnvironmentObjects } from "./EnvironmentObjects";
 
 let havokPluginPromise: Promise<HavokPlugin> | null = null;
 function getHavokPlugin(): Promise<HavokPlugin> {
@@ -72,20 +76,36 @@ export function BabylonScene() {
         camera.attachControl(canvas, true);
 
         // 5. Lighting + fog (dynamic, reads store)
-        createLighting(scene);
+        const lighting = createLighting(scene);
 
         // 6. Terrain + heightfield physics
         createTerrain(scene);
 
-        // 7. Test sphere with physics
-        createPhysicsTestSphere(scene);
+        // 7. Environment Manager (time/weather/seasons)
+        const envManager = createEnvironmentManager(scene);
 
-        // 8. Render loop
+        // 8. Robot agent
+        const robot = createRobot(scene);
+
+        // 9. Vegetation (trees, grass, mushrooms)
+        createVegetation(scene);
+
+        // 10. Environment objects (crystals, mountains, towers)
+        createEnvironmentObjects(scene);
+
+        // Add robot to shadow generator
+        if (lighting.shadowGen && robot.rootNode) {
+          robot.rootNode.getChildMeshes().forEach(mesh => {
+            lighting.shadowGen.addShadowCaster(mesh);
+          });
+        }
+
+        // 11. Render loop
         engine.runRenderLoop(() => {
           scene.render();
         });
 
-        // 9. Handle resize
+        // 12. Handle resize
         const onResize = () => engine.resize();
         window.addEventListener("resize", onResize);
 
@@ -94,6 +114,8 @@ export function BabylonScene() {
         // Cleanup
         return () => {
           window.removeEventListener("resize", onResize);
+          envManager.dispose();
+          robot.dispose();
           scene.dispose();
           engine.dispose();
         };
