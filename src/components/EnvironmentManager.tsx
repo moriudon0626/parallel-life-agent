@@ -6,6 +6,7 @@ import { applyEmotionEvent } from "../lib/emotions";
 import { regenerateResources } from "../lib/resources";
 import { mutateColor } from "../lib/lifecycle";
 import type { CritterRegistryEntry } from "../store";
+import { shouldTriggerWeatherEvent, createWeatherEvent, isWeatherEventActive, getWeatherWarning } from "../lib/environment";
 
 type WeatherType = 'sunny' | 'rainy' | 'cloudy' | 'snowy';
 type SeasonType = 'spring' | 'summer' | 'autumn' | 'winter';
@@ -89,6 +90,8 @@ export const EnvironmentManager = () => {
     const lastEmotionBroadcast = useRef(0);
     const lastResourceRegen = useRef(0);
     const lastCritterSpawnCheck = useRef(0);
+    const lastWeatherEventCheck = useRef(0);
+    const lastWeatherWarningCheck = useRef(0);
 
     // 天気遷移用のref
     const targetWeather = useRef<WeatherType>(weather);
@@ -134,6 +137,72 @@ export const EnvironmentManager = () => {
             const store = useStore.getState();
             const temp = calculateTemperature(store.time, store.weather, store.season);
             setTemperature(temp);
+        }
+
+        // === WEATHER EVENT SYSTEM ===
+        // Check for new weather events (every 60 seconds)
+        if (t - lastWeatherEventCheck.current > 60.0) {
+            lastWeatherEventCheck.current = t;
+            const store = useStore.getState();
+
+            // Only trigger new event if no current event is active
+            if (!store.currentWeatherEvent || !isWeatherEventActive(store.currentWeatherEvent, store.time * 3600 + store.day * 86400)) {
+                const eventType = shouldTriggerWeatherEvent(
+                    store.weather,
+                    store.temperature,
+                    store.day,
+                    store.season
+                );
+
+                if (eventType) {
+                    const gameTime = store.time * 3600 + store.day * 86400;
+                    const event = createWeatherEvent(eventType, gameTime);
+                    store.setWeatherEvent(event);
+                    store.setWeatherEventWarningShown(false);
+
+                    console.log('[Weather Event] New event triggered:', event.name, 'Duration:', event.duration, 's');
+                }
+            }
+        }
+
+        // Check for weather event warnings (every 5 seconds)
+        if (t - lastWeatherWarningCheck.current > 5.0) {
+            lastWeatherWarningCheck.current = t;
+            const store = useStore.getState();
+            const currentEvent = store.currentWeatherEvent;
+
+            if (currentEvent && !store.weatherEventWarningShown) {
+                const gameTime = store.time * 3600 + store.day * 86400;
+                const warning = getWeatherWarning(currentEvent, gameTime);
+
+                if (warning) {
+                    store.addActivityLog({
+                        category: 'warning',
+                        importance: 'critical',
+                        entityId: 'system',
+                        content: warning,
+                    });
+                    store.setWeatherEventWarningShown(true);
+                    console.log('[Weather Warning]', warning);
+                }
+            }
+
+            // Check if event has ended
+            if (currentEvent) {
+                const gameTime = store.time * 3600 + store.day * 86400;
+                if (!isWeatherEventActive(currentEvent, gameTime)) {
+                    // Event ended
+                    store.addActivityLog({
+                        category: 'event',
+                        importance: 'normal',
+                        entityId: 'system',
+                        content: `✅ ${currentEvent.name}が終息しました`,
+                    });
+                    store.setWeatherEvent(null);
+                    store.setWeatherEventWarningShown(false);
+                    console.log('[Weather Event] Event ended:', currentEvent.name);
+                }
+            }
         }
 
         // Resource regeneration (every 2 seconds)

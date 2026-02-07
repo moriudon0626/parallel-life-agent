@@ -63,6 +63,12 @@ export const Interface = () => {
     const thoughtScrollRef = useRef<HTMLDivElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
 
+    // Panel collapse states
+    const [scoreCollapsed, setScoreCollapsed] = useState(false);
+    const [robotStatusCollapsed, setRobotStatusCollapsed] = useState(false);
+    const [inventoryCollapsed, setInventoryCollapsed] = useState(false);
+    const [activityCollapsed, setActivityCollapsed] = useState(false);
+
     // Phase 1: Activity log filter
     const [logFilter, setLogFilter] = useState<'all' | 'thought' | 'event' | 'discovery' | 'combat' | 'death' | 'build' | 'warning'>('all');
 
@@ -310,6 +316,13 @@ export const Interface = () => {
 
             {/* スコアパネル（右上、設定ボタンの下） */}
             <div className="absolute top-20 right-4 pointer-events-auto z-50">
+                {scoreCollapsed ? (
+                    <button onClick={() => setScoreCollapsed(false)} className="px-3 py-2 bg-white/85 backdrop-blur-lg rounded-xl shadow-lg border border-white/40 flex items-center gap-2 hover:bg-white/95 transition-colors">
+                        <Award size={16} className="text-yellow-500" />
+                        <span className="text-sm font-black text-gray-900">{realtimeScore.current.total.toLocaleString()}</span>
+                        <span className={clsx("px-1.5 py-0.5 rounded text-[10px] font-black", realtimeScore.rank.current === 'SS' ? 'bg-purple-500 text-white' : realtimeScore.rank.current === 'S' ? 'bg-yellow-500 text-white' : 'bg-gray-500 text-white')}>{realtimeScore.rank.current}</span>
+                    </button>
+                ) : (
                 <div className="px-5 py-4 bg-white/85 backdrop-blur-lg rounded-2xl shadow-xl border border-white/40 min-w-[280px]">
                     {/* 総合スコアとランク */}
                     <div className="flex items-center justify-between mb-3">
@@ -319,16 +332,19 @@ export const Interface = () => {
                                 {realtimeScore.current.total.toLocaleString()}
                             </span>
                         </div>
-                        <div className={clsx(
-                            "px-3 py-1.5 rounded-lg font-black text-lg shadow-md",
-                            realtimeScore.rank.current === 'SS' ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' :
-                            realtimeScore.rank.current === 'S' ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white' :
-                            realtimeScore.rank.current === 'A' ? 'bg-blue-500 text-white' :
-                            realtimeScore.rank.current === 'B' ? 'bg-green-500 text-white' :
-                            realtimeScore.rank.current === 'C' ? 'bg-gray-500 text-white' :
-                            'bg-gray-400 text-white'
-                        )}>
-                            {realtimeScore.rank.current}
+                        <div className="flex items-center gap-2">
+                            <div className={clsx(
+                                "px-3 py-1.5 rounded-lg font-black text-lg shadow-md",
+                                realtimeScore.rank.current === 'SS' ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' :
+                                realtimeScore.rank.current === 'S' ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white' :
+                                realtimeScore.rank.current === 'A' ? 'bg-blue-500 text-white' :
+                                realtimeScore.rank.current === 'B' ? 'bg-green-500 text-white' :
+                                realtimeScore.rank.current === 'C' ? 'bg-gray-500 text-white' :
+                                'bg-gray-400 text-white'
+                            )}>
+                                {realtimeScore.rank.current}
+                            </div>
+                            <button onClick={() => setScoreCollapsed(true)} className="text-gray-400 hover:text-gray-600 transition-colors" title="最小化"><Minimize2 size={14} /></button>
                         </div>
                     </div>
 
@@ -395,14 +411,25 @@ export const Interface = () => {
                         </div>
                     )}
                 </div>
+                )}
             </div>
 
             {/* ロボットステータスパネル（環境パネルの下） */}
             <div className="absolute top-[180px] left-4 pointer-events-auto z-50">
-                <div className="px-4 py-3 bg-white/85 backdrop-blur-lg rounded-2xl shadow-xl border border-white/40 min-w-[180px]">
-                    <div className="flex items-center gap-2 mb-2">
+                {robotStatusCollapsed ? (
+                    <button onClick={() => setRobotStatusCollapsed(false)} className="px-3 py-2 bg-white/85 backdrop-blur-lg rounded-xl shadow-lg border border-white/40 flex items-center gap-2 hover:bg-white/95 transition-colors">
                         <Wrench size={14} className="text-orange-500" />
-                        <span className="text-xs font-bold text-gray-700">Unit-01 状態</span>
+                        <Battery size={12} className={robotStatus.battery > 20 ? 'text-green-500' : 'text-red-500'} />
+                        <span className="text-[10px] font-bold text-gray-900">{robotStatus.battery.toFixed(0)}%</span>
+                    </button>
+                ) : (
+                <div className="px-4 py-3 bg-white/85 backdrop-blur-lg rounded-2xl shadow-xl border border-white/40 min-w-[180px]">
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                            <Wrench size={14} className="text-orange-500" />
+                            <span className="text-xs font-bold text-gray-700">Unit-01 状態</span>
+                        </div>
+                        <button onClick={() => setRobotStatusCollapsed(true)} className="text-gray-400 hover:text-gray-600 transition-colors" title="最小化"><Minimize2 size={12} /></button>
                     </div>
 
                     {/* バッテリー */}
@@ -463,8 +490,8 @@ export const Interface = () => {
                     {(robotStatus.malfunctioning || robotStatus.overheated || robotStatus.frozen) && (
                         <div className="mt-2 pt-2 border-t border-gray-200 space-y-1">
                             {robotStatus.malfunctioning && (
-                                <div className="text-[9px] font-bold text-red-600 flex items-center gap-1">
-                                    ⚠️ 故障
+                                <div className="text-[9px] font-bold text-red-600 flex items-center gap-1 animate-pulse">
+                                    ⚠️ バッテリー切れ - 充電ステーションへ移動してください
                                 </div>
                             )}
                             {robotStatus.overheated && (
@@ -480,14 +507,24 @@ export const Interface = () => {
                         </div>
                     )}
                 </div>
+                )}
             </div>
 
             {/* インベントリパネル（ロボットステータスの下） */}
-            <div className="absolute top-[380px] left-4 pointer-events-auto z-50">
-                <div className="px-4 py-3 bg-white/85 backdrop-blur-lg rounded-2xl shadow-xl border border-white/40 min-w-[180px]">
-                    <div className="flex items-center gap-2 mb-2">
+            <div className={clsx("absolute left-4 pointer-events-auto z-50", robotStatusCollapsed ? "top-[220px]" : "top-[380px]")}>
+                {inventoryCollapsed ? (
+                    <button onClick={() => setInventoryCollapsed(false)} className="px-3 py-2 bg-white/85 backdrop-blur-lg rounded-xl shadow-lg border border-white/40 flex items-center gap-2 hover:bg-white/95 transition-colors">
                         <Package size={14} className="text-blue-500" />
-                        <span className="text-xs font-bold text-gray-700">所持品</span>
+                        <span className="text-[10px] font-bold text-gray-700">{Object.entries(inventory).filter(([, a]) => a > 0).length} 種</span>
+                    </button>
+                ) : (
+                <div className="px-4 py-3 bg-white/85 backdrop-blur-lg rounded-2xl shadow-xl border border-white/40 min-w-[180px]">
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                            <Package size={14} className="text-blue-500" />
+                            <span className="text-xs font-bold text-gray-700">所持品</span>
+                        </div>
+                        <button onClick={() => setInventoryCollapsed(true)} className="text-gray-400 hover:text-gray-600 transition-colors" title="最小化"><Minimize2 size={12} /></button>
                     </div>
 
                     <div className="space-y-1.5 text-[10px]">
@@ -507,6 +544,7 @@ export const Interface = () => {
                         )}
                     </div>
                 </div>
+                )}
             </div>
 
             {/* Thought Log Panel (Left side) */}
@@ -584,8 +622,14 @@ export const Interface = () => {
             </div>
 
             {/* アクティビティログパネル（左下） */}
-            <div className="absolute bottom-6 left-6 pointer-events-auto z-40 w-[380px]">
-                <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-white/40 overflow-hidden max-h-[40vh] flex flex-col">
+            <div className="absolute bottom-6 left-6 pointer-events-auto z-40">
+                {activityCollapsed ? (
+                    <button onClick={() => setActivityCollapsed(false)} className="px-3 py-2 bg-white/85 backdrop-blur-lg rounded-xl shadow-lg border border-white/40 flex items-center gap-2 hover:bg-white/95 transition-colors">
+                        <Activity size={14} className="text-green-600" />
+                        <span className="text-[10px] font-bold text-gray-700">ログ {filteredLog.length}件</span>
+                    </button>
+                ) : (
+                <div className="w-[380px] bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-white/40 overflow-hidden max-h-[40vh] flex flex-col">
                     {/* ヘッダーとフィルター */}
                     <div className="px-3 py-2 bg-gradient-to-r from-green-50 to-blue-50 border-b border-gray-100">
                         <div className="flex items-center justify-between mb-2">
@@ -593,9 +637,10 @@ export const Interface = () => {
                                 <Activity size={14} className="text-green-600" />
                                 <span className="text-xs font-bold text-gray-700">アクティビティログ</span>
                             </div>
-                            <span className="text-[10px] font-bold text-gray-400">
-                                {filteredLog.length} 件
-                            </span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-bold text-gray-400">{filteredLog.length} 件</span>
+                                <button onClick={() => setActivityCollapsed(true)} className="text-gray-400 hover:text-gray-600 transition-colors" title="最小化"><Minimize2 size={12} /></button>
+                            </div>
                         </div>
                         {/* フィルターボタン */}
                         <div className="flex gap-1 overflow-x-auto scrollbar-thin">
@@ -670,6 +715,7 @@ export const Interface = () => {
                         ))}
                     </div>
                 </div>
+                )}
             </div>
 
             {/* Header / Settings Buttons (Global Top Right) */}
@@ -678,7 +724,11 @@ export const Interface = () => {
                     onClick={() => {
                         const pos = useStore.getState().entityPositions['robot'];
                         if (pos) {
+                            // Set both 3D and 2D camera targets
+                            // 3D mode (Experience.tsx) uses cameraTarget
                             useStore.getState().setCameraTarget({ x: pos.x, y: 2, z: pos.z });
+                            // 2D mode (Canvas2D.tsx) uses camera2DTarget
+                            useStore.getState().setCamera2DTarget({ x: pos.x, z: pos.z, zoom: 20 });
                         }
                     }}
                     className="p-3 bg-white/90 backdrop-blur-md rounded-full shadow-lg hover:bg-white transition-colors text-orange-500"
@@ -700,12 +750,12 @@ export const Interface = () => {
                 <div className="pointer-events-auto absolute inset-0 z-[60] flex items-center justify-center bg-black/20 backdrop-blur-sm">
                     <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md mx-4 transform transition-all animate-fade-in-up max-h-[90vh] overflow-y-auto">
                         <h2 className="text-xl font-bold mb-4 text-gray-800 flex justify-between items-center">
-                            Settings
+                            設定
                             <button onClick={toggleSettings}><X size={20} className="text-gray-500 hover:text-gray-800" /></button>
                         </h2>
 
                         <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">AI Provider</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">AIプロバイダー</label>
                             <div className="flex space-x-2">
                                 <button
                                     onClick={() => setProvider('openai')}
@@ -724,7 +774,7 @@ export const Interface = () => {
 
                         <div className="mb-6">
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                API Key ({provider === 'openai' ? 'OpenAI' : 'Anthropic'})
+                                APIキー ({provider === 'openai' ? 'OpenAI' : 'Anthropic'})
                             </label>
                             <input
                                 type="password"
@@ -734,15 +784,15 @@ export const Interface = () => {
                                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono"
                             />
                             <p className="text-xs text-gray-500 mt-2">
-                                * Your key is stored locally in your browser.
+                                * APIキーはブラウザにローカル保存されます
                             </p>
                         </div>
 
                         {/* TTS Settings */}
                         <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                            <h3 className="text-sm font-bold text-gray-700 mb-3">Text-to-Speech</h3>
+                            <h3 className="text-sm font-bold text-gray-700 mb-3">音声合成</h3>
                             <div className="mb-3">
-                                <label className="block text-xs font-medium text-gray-600 mb-1">TTS Provider</label>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">音声プロバイダー</label>
                                 <div className="flex space-x-1.5">
                                     {(['openai', 'elevenlabs', 'web'] as const).map((p) => (
                                         <button
@@ -750,7 +800,7 @@ export const Interface = () => {
                                             onClick={() => setTtsProvider(p)}
                                             className={clsx("px-3 py-1.5 rounded-lg text-xs font-medium transition-colors", ttsProvider === p ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200")}
                                         >
-                                            {p === 'openai' ? 'OpenAI' : p === 'elevenlabs' ? 'ElevenLabs' : 'Browser'}
+                                            {p === 'openai' ? 'OpenAI' : p === 'elevenlabs' ? 'ElevenLabs' : 'ブラウザ'}
                                         </button>
                                     ))}
                                 </div>
@@ -791,7 +841,7 @@ export const Interface = () => {
                             {ttsProvider === 'elevenlabs' && (
                                 <>
                                     <div className="mb-3">
-                                        <label className="block text-xs font-medium text-gray-600 mb-1">API Key</label>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">APIキー</label>
                                         <input
                                             type="password"
                                             value={elevenLabsKey}
@@ -857,7 +907,7 @@ export const Interface = () => {
                             {ambientSoundsEnabled && (
                                 <div>
                                     <label className="block text-xs font-medium text-gray-600 mb-1">
-                                        Volume: {Math.round(ambientSoundsVolume * 100)}%
+                                        音量: {Math.round(ambientSoundsVolume * 100)}%
                                     </label>
                                     <input
                                         type="range"
@@ -870,7 +920,7 @@ export const Interface = () => {
                                 </div>
                             )}
                             <p className="text-[10px] text-gray-400 mt-2">
-                                Wind, insects, birds, water, rain (click to activate)
+                                風、虫、鳥、水、雨の音（クリックで有効化）
                             </p>
                         </div>
 

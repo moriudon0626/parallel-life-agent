@@ -13,9 +13,9 @@ export function createLighting(scene: Scene) {
   const sun = new DirectionalLight("sunLight", new Vector3(-1, -2, -1), scene);
   sun.intensity = 1.0;
 
-  const shadowGen = new ShadowGenerator(2048, sun);
-  shadowGen.useBlurExponentialShadowMap = true;
-  shadowGen.blurKernel = 32;
+  const shadowGen = new ShadowGenerator(1024, sun);
+  shadowGen.usePercentageCloserFiltering = true;
+  shadowGen.filteringQuality = ShadowGenerator.QUALITY_MEDIUM;
 
   const ambient = new HemisphericLight("ambientLight", new Vector3(0, 1, 0), scene);
   ambient.intensity = 0.3;

@@ -92,7 +92,7 @@ export function createTerrain(scene: Scene) {
   const mat = new StandardMaterial("terrainMat", scene);
   mat.diffuseColor = new Color3(1, 1, 1);
   mat.specularColor = new Color3(0.1, 0.1, 0.1);
-  mat.useVertexColors = true;
+  // mat.useVertexColors = true; // Property removed in newer Babylon.js versions
   ground.material = mat;
 
   // Physics: HeightField collider

@@ -183,7 +183,7 @@ export function createRobot(scene: Scene): { rootNode: TransformNode; dispose: (
         scene,
     );
     aggregate.body.setLinearDamping(0.5);
-    aggregate.body.setAngularDamping(0.5);
+    aggregate.body.setAngularDamping(10.0); // High angular damping to prevent toppling
 
     // =====================================================================
     //  3. Mutable state (replaces React refs / useState)
@@ -568,10 +568,13 @@ ${memContext}`;
         }
 
         // =================================================================
-        //  Animation: Floating Head
+        //  Animation: Floating Head (stable, gentle bob)
         // =================================================================
-        headGroup.position.y = 0.6 + Math.sin(t * 2) * 0.05;
-        headGroup.rotation.y = Math.sin(t * 0.5) * 0.1;
+        headGroup.position.y = 0.65 + Math.sin(t * 1.5) * 0.03;
+        // Head always faces forward relative to body, with gentle idle sway
+        headGroup.rotation.x = 0;
+        headGroup.rotation.y = Math.sin(t * 0.5) * 0.08;
+        headGroup.rotation.z = 0;
 
         // =================================================================
         //  Activity System (every 3-8s via nextDecisionTime)
@@ -764,15 +767,17 @@ ${memContext}`;
         }
 
         // --- Terrain height correction ---
+        // Robot has scale 2, dodecahedron size 0.45 -> visual radius ~0.9
+        // Center should be at least ~1.5 above terrain to avoid visual clipping
         const terrainY = getTerrainHeight(currentPos.x, currentPos.z);
-        const correctedY = terrainY + 1.0;
+        const correctedY = terrainY + 1.5;
 
-        if (currentPos.y < correctedY - 0.3) {
-            // Sunk into terrain - teleport up
+        if (currentPos.y < correctedY - 0.1) {
+            // Sunk into or near terrain - push up
             aggregate.body.disablePreStep = false;
             rootNode.position = new Vector3(
                 currentPos.x,
-                correctedY + 0.5,
+                correctedY + 0.3,
                 currentPos.z,
             );
             // Clamp downward velocity
@@ -785,9 +790,20 @@ ${memContext}`;
             aggregate.body.disablePreStep = false;
             rootNode.position = new Vector3(
                 currentPos.x,
-                correctedY + 1.5,
+                correctedY + 0.5,
                 currentPos.z,
             );
+        }
+
+        // --- Force upright: only allow Y-axis rotation ---
+        // Equivalent to Rapier's enabledRotations={[false, true, false]}
+        if (rootNode.rotationQuaternion) {
+            const euler = rootNode.rotationQuaternion.toEulerAngles();
+            Quaternion.FromEulerAnglesToRef(0, euler.y, 0, rootNode.rotationQuaternion);
+        }
+        const angVel = aggregate.body.getAngularVelocity();
+        if (Math.abs(angVel.x) > 0.01 || Math.abs(angVel.z) > 0.01) {
+            aggregate.body.setAngularVelocity(new Vector3(0, angVel.y, 0));
         }
 
         // --- DIALOGUE state: freeze horizontal motion ---
