@@ -1,28 +1,142 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useStore } from '../store';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useStore, createMemory } from '../store';
 import type { Message } from '../store';
-import { Send, Settings, User, Bot, Trash2, MessageCircle, X, Minimize2 } from 'lucide-react';
+import { Send, Settings, Trash2, MessageCircle, X, Minimize2, Sun, Cloud, CloudRain, Snowflake, VolumeX, RotateCcw, Volume2, Thermometer, Brain, ChevronRight, ChevronLeft, Calendar, Locate } from 'lucide-react';
 import clsx from 'clsx';
-import { streamResponse } from '../lib/llm';
+import { streamResponse, DEFAULT_ROBOT_SYSTEM_PROMPT, DEFAULT_CRITTER_SYSTEM_PROMPT } from '../lib/llm';
+import { stopAllSpeech } from '../lib/speech';
 
 export const Interface = () => {
-    const {
-        messages,
-        addMessage,
-        clearMessages,
-        apiKey,
-        setApiKey,
-        provider,
-        setProvider,
-        isSettingsOpen,
-        toggleSettings,
-        isChatOpen,
-        toggleChat,
-        memories
-    } = useStore();
+    const messages = useStore(s => s.messages);
+    const addMessage = useStore(s => s.addMessage);
+    const clearMessages = useStore(s => s.clearMessages);
+    const apiKey = useStore(s => s.apiKey);
+    const setApiKey = useStore(s => s.setApiKey);
+    const provider = useStore(s => s.provider);
+    const setProvider = useStore(s => s.setProvider);
+    const ttsProvider = useStore(s => s.ttsProvider);
+    const setTtsProvider = useStore(s => s.setTtsProvider);
+    const openaiRobotVoice = useStore(s => s.openaiRobotVoice);
+    const setOpenaiRobotVoice = useStore(s => s.setOpenaiRobotVoice);
+    const openaiCritterVoice = useStore(s => s.openaiCritterVoice);
+    const setOpenaiCritterVoice = useStore(s => s.setOpenaiCritterVoice);
+    const elevenLabsKey = useStore(s => s.elevenLabsKey);
+    const setElevenLabsKey = useStore(s => s.setElevenLabsKey);
+    const robotVoiceId = useStore(s => s.robotVoiceId);
+    const setRobotVoiceId = useStore(s => s.setRobotVoiceId);
+    const critterVoiceId = useStore(s => s.critterVoiceId);
+    const setCritterVoiceId = useStore(s => s.setCritterVoiceId);
+    const robotSystemPrompt = useStore(s => s.robotSystemPrompt);
+    const setRobotSystemPrompt = useStore(s => s.setRobotSystemPrompt);
+    const critterSystemPrompt = useStore(s => s.critterSystemPrompt);
+    const setCritterSystemPrompt = useStore(s => s.setCritterSystemPrompt);
+    const isSettingsOpen = useStore(s => s.isSettingsOpen);
+    const toggleSettings = useStore(s => s.toggleSettings);
+    const isChatOpen = useStore(s => s.isChatOpen);
+    const toggleChat = useStore(s => s.toggleChat);
+    const robotMemories = useStore(s => s.robotMemories);
+    const conversationHistories = useStore(s => s.conversationHistories);
+    const relationships = useStore(s => s.relationships);
+    const time = useStore(s => s.time);
+    const weather = useStore(s => s.weather);
+    const temperature = useStore(s => s.temperature);
+    const ambientSoundsEnabled = useStore(s => s.ambientSoundsEnabled);
+    const setAmbientSoundsEnabled = useStore(s => s.setAmbientSoundsEnabled);
+    const ambientSoundsVolume = useStore(s => s.ambientSoundsVolume);
+    const setAmbientSoundsVolume = useStore(s => s.setAmbientSoundsVolume);
+    const day = useStore(s => s.day);
+    const season = useStore(s => s.season);
+    const robotThoughts = useStore(s => s.robotThoughts);
+    const critterThoughts = useStore(s => s.critterThoughts);
+    const critterRegistry = useStore(s => s.critterRegistry);
 
     const [input, setInput] = useState("");
+    const [isThoughtPanelOpen, setIsThoughtPanelOpen] = useState(false);
+    const [thoughtTab, setThoughtTab] = useState<string>('all');
+    const thoughtScrollRef = useRef<HTMLDivElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
+
+    // Season label
+    const seasonLabel = useMemo(() => {
+        const labels: Record<string, string> = { spring: 'Spring', summer: 'Summer', autumn: 'Autumn', winter: 'Winter' };
+        return labels[season] || 'Spring';
+    }, [season]);
+
+    // Merged thoughts: robot + all critters, sorted by timestamp
+    const allThoughts = useMemo(() => {
+        const merged: { thought: string; action: string; timestamp: number; gameTime: string; entityName: string; color: string }[] = [];
+
+        // Robot thoughts
+        for (const t of robotThoughts) {
+            merged.push({ ...t, entityName: 'Unit-01', color: '#FFA500' });
+        }
+
+        // Critter thoughts
+        for (const [, thoughts] of Object.entries(critterThoughts)) {
+            for (const t of thoughts) {
+                merged.push({ thought: t.thought, action: t.action, timestamp: t.timestamp, gameTime: t.gameTime, entityName: t.critterName, color: t.color });
+            }
+        }
+
+        merged.sort((a, b) => a.timestamp - b.timestamp);
+        return merged;
+    }, [robotThoughts, critterThoughts]);
+
+    // Filtered thoughts based on selected tab
+    const filteredThoughts = useMemo(() => {
+        if (thoughtTab === 'all') return allThoughts;
+        return allThoughts.filter(t => t.entityName === thoughtTab);
+    }, [allThoughts, thoughtTab]);
+
+    // Tab options
+    const thoughtTabs = useMemo(() => {
+        const tabs = ['all', 'Unit-01'];
+        const aliveCritters = critterRegistry.filter(c => c.isAlive).map(c => c.name);
+        return [...tabs, ...aliveCritters];
+    }, [critterRegistry]);
+
+    // Auto-scroll thought panel
+    useEffect(() => {
+        if (thoughtScrollRef.current) {
+            thoughtScrollRef.current.scrollTop = thoughtScrollRef.current.scrollHeight;
+        }
+    }, [filteredThoughts]);
+
+    // 時刻のフォーマット (HH:mm)
+    const formattedTime = useMemo(() => {
+        const hours = Math.floor(time);
+        const minutes = Math.floor((time % 1) * 60);
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    }, [time]);
+
+    // 1日のフェーズと方角の取得
+    const envInfo = useMemo(() => {
+        let phase = "Day";
+        let direction = "Zenith"; // 正午周辺
+
+        if (time >= 5 && time < 7) phase = "Dawn";
+        else if (time >= 7 && time < 17) phase = "Day";
+        else if (time >= 17 && time < 19) phase = "Dusk";
+        else phase = "Night";
+
+        if (time >= 5 && time < 11) direction = "East";
+        else if (time >= 11 && time < 13) direction = "Zenith";
+        else if (time >= 13 && time < 19) direction = "West";
+        else direction = "Nadir"; // 夜の底
+
+        return { phase, direction };
+    }, [time]);
+
+    // 天気アイコンの選択
+    const WeatherIcon = useMemo(() => {
+        switch (weather) {
+            case 'sunny': return <Sun size={18} className="text-orange-400" />;
+            case 'cloudy': return <Cloud size={18} className="text-gray-400" />;
+            case 'rainy': return <CloudRain size={18} className="text-blue-400" />;
+            case 'snowy': return <Snowflake size={18} className="text-blue-200" />;
+            default: return <Sun size={18} />;
+        }
+    }, [weather]);
 
     // Auto-scroll to bottom
     useEffect(() => {
@@ -37,6 +151,12 @@ export const Interface = () => {
 
         const userMsg: Message = { role: 'user', content: input, createdAt: Date.now() };
         addMessage(userMsg);
+
+        // Send as directive to robot's next thinking cycle
+        useStore.getState().setUserDirective(input);
+        // Also add as robot memory so it persists
+        useStore.getState().addRobotMemory(createMemory(`[ユーザー指示] ${input}`, 'event', ['user'], 0.9));
+
         setInput("");
 
         try {
@@ -44,8 +164,36 @@ export const Interface = () => {
             addMessage(aiMsg);
 
             let fullResponse = "";
-            // Pass memories to LLM
-            const stream = streamResponse(provider, apiKey, [...messages, userMsg], memories);
+
+            // Build world context from conversation histories and relationships
+            const dialogueEntries: string[] = [];
+            for (const [sessionId, history] of Object.entries(conversationHistories)) {
+                if (!sessionId.includes('robot')) continue;
+                const critterName = sessionId.replace('robot:', '');
+                const recentLines = history.slice(-4).map(h =>
+                    `${h.role === 'assistant' ? 'あなた' : critterName}: ${h.content}`
+                );
+                if (recentLines.length > 0) {
+                    dialogueEntries.push(`[${critterName}との会話]\n${recentLines.join('\n')}`);
+                }
+            }
+
+            const relationEntries: string[] = [];
+            for (const [key, val] of Object.entries(relationships)) {
+                if (key.includes('robot')) {
+                    const other = key.replace('robot:', '').replace(':robot', '');
+                    const level = (val as number) > 0.3 ? '友好' : (val as number) < -0.3 ? '警戒' : '普通';
+                    relationEntries.push(`${other}: ${level} (${((val as number) * 100).toFixed(0)}%)`);
+                }
+            }
+
+            const worldContext = {
+                dialogueLog: dialogueEntries.slice(-3).join('\n') || undefined,
+                relationships: relationEntries.length > 0 ? relationEntries.join(', ') : undefined,
+            };
+
+            // Pass memories and world context to LLM
+            const stream = streamResponse(provider, apiKey, [...messages, userMsg], robotMemories.map(m => m.content), worldContext, robotSystemPrompt);
 
             for await (const chunk of stream) {
                 fullResponse += chunk;
@@ -67,8 +215,163 @@ export const Interface = () => {
     return (
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
 
-            {/* Header / Settings Button (Global Top Right) */}
-            <div className="absolute top-4 right-4 pointer-events-auto z-50">
+            {/* Environment Status Panel (Top Left) */}
+            <div className="absolute top-4 left-4 pointer-events-auto z-50">
+                <div className="px-5 py-3 bg-white/85 backdrop-blur-lg rounded-2xl shadow-xl border border-white/40 flex flex-col gap-2 min-w-[180px]">
+                    <div className="flex items-center justify-between">
+                        <span className="text-2xl font-mono font-black text-gray-900 tracking-tighter">{formattedTime}</span>
+                        <div className="flex items-center gap-2">
+                            {WeatherIcon}
+                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{weather}</span>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-1.5">
+                            <Calendar size={14} className="text-gray-400" />
+                            <span className="font-mono font-bold text-gray-700">Day {day}</span>
+                            <span className={clsx(
+                                "text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded",
+                                season === 'spring' ? 'bg-green-100 text-green-600' :
+                                season === 'summer' ? 'bg-orange-100 text-orange-600' :
+                                season === 'autumn' ? 'bg-amber-100 text-amber-700' :
+                                'bg-blue-100 text-blue-600'
+                            )}>{seasonLabel}</span>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 text-xs">
+                        <Thermometer size={14} className={temperature < 0 ? 'text-blue-500' : temperature < 15 ? 'text-cyan-500' : temperature < 25 ? 'text-orange-400' : 'text-red-500'} />
+                        <span className="font-mono font-bold text-gray-700">{temperature.toFixed(1)}°C</span>
+                    </div>
+
+                    <div className="h-[1px] w-full bg-gradient-to-r from-gray-200 via-gray-100 to-transparent"></div>
+
+                    <div className="flex items-center justify-between text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                        <div className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                            <span>{envInfo.phase}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-orange-400"></span>
+                            <span>{envInfo.direction}</span>
+                        </div>
+                    </div>
+
+                    <div className="mt-1 flex items-center justify-between gap-1">
+                        <button
+                            onClick={() => useStore.getState().setDialogueBusy(false)}
+                            className="flex-1 text-[8px] bg-gray-100 hover:bg-red-50 text-gray-400 hover:text-red-500 px-2 py-1 rounded transition-colors uppercase tracking-widest font-bold"
+                            title="Reset System State"
+                        >
+                            Reset
+                        </button>
+                        <button
+                            onClick={stopAllSpeech}
+                            className="flex-1 text-[8px] bg-gray-100 hover:bg-orange-50 text-gray-400 hover:text-orange-500 px-2 py-1 rounded transition-colors uppercase tracking-widest font-bold flex items-center justify-center gap-1"
+                            title="Clear All Speech"
+                        >
+                            <VolumeX size={10} />
+                            Clear
+                        </button>
+                        <div className="flex items-center gap-1 shrink-0 ml-1">
+                            <span className={`w-1.5 h-1.5 rounded-full ${useStore((s) => s.isDialogueBusy) ? 'bg-red-400 animate-pulse' : 'bg-green-400'}`}></span>
+                            <span className="text-[8px] text-gray-400 font-bold uppercase tracking-widest">
+                                {useStore((s) => s.isDialogueBusy) ? 'Busy' : 'Ready'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Thought Log Panel (Left side) */}
+            <div className="absolute top-48 left-4 pointer-events-auto z-40">
+                <button
+                    onClick={() => setIsThoughtPanelOpen(!isThoughtPanelOpen)}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-white/85 backdrop-blur-lg rounded-xl shadow-lg border border-white/40 text-xs font-bold text-gray-600 hover:bg-white/95 transition-colors"
+                >
+                    <Brain size={14} />
+                    <span>思考ログ</span>
+                    {isThoughtPanelOpen ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}
+                    {allThoughts.length > 0 && (
+                        <span className="ml-1 w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center text-[9px]">
+                            {allThoughts.length}
+                        </span>
+                    )}
+                </button>
+
+                {isThoughtPanelOpen && (
+                    <div className="mt-2 w-[320px] max-h-[50vh] bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-white/40 overflow-hidden animate-fade-in-up">
+                        <div className="px-3 py-2 bg-gradient-to-r from-blue-50 to-purple-50 border-b border-gray-100">
+                            <span className="text-xs font-bold text-gray-700">思考ログ</span>
+                        </div>
+                        {/* Tab Bar */}
+                        <div className="px-2 py-1.5 border-b border-gray-100 flex gap-1 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-200">
+                            {thoughtTabs.map(tab => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setThoughtTab(tab)}
+                                    className={clsx(
+                                        "px-2 py-1 rounded-md text-[10px] font-bold whitespace-nowrap transition-colors",
+                                        thoughtTab === tab
+                                            ? "bg-blue-500 text-white"
+                                            : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                                    )}
+                                >
+                                    {tab === 'all' ? 'All' : tab}
+                                </button>
+                            ))}
+                        </div>
+                        <div
+                            ref={thoughtScrollRef}
+                            className="overflow-y-auto max-h-[calc(50vh-80px)] p-2 space-y-1.5 scrollbar-thin scrollbar-thumb-gray-200"
+                        >
+                            {filteredThoughts.length === 0 && (
+                                <div className="text-center text-gray-400 text-xs py-4">
+                                    まだ思考記録がありません
+                                </div>
+                            )}
+                            {filteredThoughts.map((thought, i) => (
+                                <div
+                                    key={`${thought.entityName}-${thought.timestamp}`}
+                                    className={clsx(
+                                        "px-2.5 py-2 rounded-lg text-xs border transition-colors",
+                                        i === filteredThoughts.length - 1
+                                            ? "bg-blue-50 border-blue-200"
+                                            : "bg-white border-gray-100"
+                                    )}
+                                >
+                                    <div className="flex items-center gap-1.5 mb-0.5">
+                                        <span
+                                            className="w-2 h-2 rounded-full shrink-0"
+                                            style={{ backgroundColor: thought.color }}
+                                        />
+                                        <span className="text-[9px] font-bold text-gray-600">{thought.entityName}</span>
+                                        <span className="text-[9px] font-mono text-gray-400">{thought.gameTime}</span>
+                                        <span className="text-[9px] font-bold text-blue-500 uppercase">{thought.action}</span>
+                                    </div>
+                                    <p className="text-gray-700 leading-relaxed">{thought.thought}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Header / Settings Buttons (Global Top Right) */}
+            <div className="absolute top-4 right-4 pointer-events-auto z-50 flex items-center gap-2">
+                <button
+                    onClick={() => {
+                        const pos = useStore.getState().entityPositions['robot'];
+                        if (pos) {
+                            useStore.getState().setCameraTarget({ x: pos.x, y: 2, z: pos.z });
+                        }
+                    }}
+                    className="p-3 bg-white/90 backdrop-blur-md rounded-full shadow-lg hover:bg-white transition-colors text-orange-500"
+                    title="Fly to Robot"
+                >
+                    <Locate size={22} />
+                </button>
                 <button
                     onClick={toggleSettings}
                     className="p-3 bg-white/90 backdrop-blur-md rounded-full shadow-lg hover:bg-white transition-colors text-gray-700"
@@ -81,7 +384,7 @@ export const Interface = () => {
             {/* Settings Modal */}
             {isSettingsOpen && (
                 <div className="pointer-events-auto absolute inset-0 z-[60] flex items-center justify-center bg-black/20 backdrop-blur-sm">
-                    <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md mx-4 transform transition-all animate-fade-in-up">
+                    <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md mx-4 transform transition-all animate-fade-in-up max-h-[90vh] overflow-y-auto">
                         <h2 className="text-xl font-bold mb-4 text-gray-800 flex justify-between items-center">
                             Settings
                             <button onClick={toggleSettings}><X size={20} className="text-gray-500 hover:text-gray-800" /></button>
@@ -118,6 +421,186 @@ export const Interface = () => {
                             />
                             <p className="text-xs text-gray-500 mt-2">
                                 * Your key is stored locally in your browser.
+                            </p>
+                        </div>
+
+                        {/* TTS Settings */}
+                        <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                            <h3 className="text-sm font-bold text-gray-700 mb-3">Text-to-Speech</h3>
+                            <div className="mb-3">
+                                <label className="block text-xs font-medium text-gray-600 mb-1">TTS Provider</label>
+                                <div className="flex space-x-1.5">
+                                    {(['openai', 'elevenlabs', 'web'] as const).map((p) => (
+                                        <button
+                                            key={p}
+                                            onClick={() => setTtsProvider(p)}
+                                            className={clsx("px-3 py-1.5 rounded-lg text-xs font-medium transition-colors", ttsProvider === p ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200")}
+                                        >
+                                            {p === 'openai' ? 'OpenAI' : p === 'elevenlabs' ? 'ElevenLabs' : 'Browser'}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {ttsProvider === 'openai' && (
+                                <>
+                                    <div className="mb-2">
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">Robot Voice</label>
+                                        <select
+                                            value={openaiRobotVoice}
+                                            onChange={(e) => setOpenaiRobotVoice(e.target.value)}
+                                            className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm"
+                                        >
+                                            {['alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer'].map(v => (
+                                                <option key={v} value={v}>{v}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="mb-2">
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">Critter Voice</label>
+                                        <select
+                                            value={openaiCritterVoice}
+                                            onChange={(e) => setOpenaiCritterVoice(e.target.value)}
+                                            className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm"
+                                        >
+                                            {['alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer'].map(v => (
+                                                <option key={v} value={v}>{v}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <p className="text-[10px] text-gray-400">
+                                        LLM用のAPIキーを共用します
+                                    </p>
+                                </>
+                            )}
+
+                            {ttsProvider === 'elevenlabs' && (
+                                <>
+                                    <div className="mb-3">
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">API Key</label>
+                                        <input
+                                            type="password"
+                                            value={elevenLabsKey}
+                                            onChange={(e) => setElevenLabsKey(e.target.value)}
+                                            placeholder="xi-..."
+                                            className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition-all font-mono text-sm"
+                                        />
+                                    </div>
+                                    <div className="mb-3">
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">Robot Voice ID</label>
+                                        <input
+                                            type="text"
+                                            value={robotVoiceId}
+                                            onChange={(e) => setRobotVoiceId(e.target.value)}
+                                            placeholder="onwK4e9ZLuTAKqWW03F9 (Daniel)"
+                                            className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition-all font-mono text-sm"
+                                        />
+                                    </div>
+                                    <div className="mb-2">
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">Critter Voice ID</label>
+                                        <input
+                                            type="text"
+                                            value={critterVoiceId}
+                                            onChange={(e) => setCritterVoiceId(e.target.value)}
+                                            placeholder="jBpfuIE2acCO8z3wKNLl (Gigi)"
+                                            className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition-all font-mono text-sm"
+                                        />
+                                    </div>
+                                    <p className="text-[10px] text-gray-400">
+                                        空欄=デフォルト使用 / Premadeボイスのみ無料で利用可
+                                    </p>
+                                </>
+                            )}
+
+                            {ttsProvider === 'web' && (
+                                <p className="text-[10px] text-gray-400">
+                                    ブラウザ内蔵の音声合成を使用します（無料・オフライン可）
+                                </p>
+                            )}
+                        </div>
+
+                        {/* Ambient Sound Settings */}
+                        <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                            <h3 className="text-sm font-bold text-gray-700 mb-3">Ambient Sounds</h3>
+                            <div className="flex items-center justify-between mb-3">
+                                <label className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
+                                    <Volume2 size={14} />
+                                    Enable Ambient Sounds
+                                </label>
+                                <button
+                                    onClick={() => setAmbientSoundsEnabled(!ambientSoundsEnabled)}
+                                    className={clsx(
+                                        "w-10 h-5 rounded-full transition-colors relative",
+                                        ambientSoundsEnabled ? "bg-blue-600" : "bg-gray-300"
+                                    )}
+                                >
+                                    <span className={clsx(
+                                        "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform",
+                                        ambientSoundsEnabled ? "translate-x-5" : "translate-x-0.5"
+                                    )} />
+                                </button>
+                            </div>
+                            {ambientSoundsEnabled && (
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                                        Volume: {Math.round(ambientSoundsVolume * 100)}%
+                                    </label>
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="100"
+                                        value={Math.round(ambientSoundsVolume * 100)}
+                                        onChange={(e) => setAmbientSoundsVolume(Number(e.target.value) / 100)}
+                                        className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                                    />
+                                </div>
+                            )}
+                            <p className="text-[10px] text-gray-400 mt-2">
+                                Wind, insects, birds, water, rain (click to activate)
+                            </p>
+                        </div>
+
+                        {/* System Prompts */}
+                        <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                            <h3 className="text-sm font-bold text-gray-700 mb-3">System Prompts</h3>
+                            <div className="mb-3">
+                                <div className="flex items-center justify-between mb-1">
+                                    <label className="block text-xs font-medium text-gray-600">Robot Prompt</label>
+                                    <button
+                                        onClick={() => setRobotSystemPrompt(DEFAULT_ROBOT_SYSTEM_PROMPT)}
+                                        className="text-[10px] text-gray-400 hover:text-blue-500 flex items-center gap-0.5 transition-colors"
+                                        title="Reset to default"
+                                    >
+                                        <RotateCcw size={10} /> Reset
+                                    </button>
+                                </div>
+                                <textarea
+                                    value={robotSystemPrompt}
+                                    onChange={(e) => setRobotSystemPrompt(e.target.value)}
+                                    rows={6}
+                                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all text-xs font-mono leading-relaxed resize-y"
+                                />
+                            </div>
+                            <div className="mb-2">
+                                <div className="flex items-center justify-between mb-1">
+                                    <label className="block text-xs font-medium text-gray-600">Critter Prompt</label>
+                                    <button
+                                        onClick={() => setCritterSystemPrompt(DEFAULT_CRITTER_SYSTEM_PROMPT)}
+                                        className="text-[10px] text-gray-400 hover:text-blue-500 flex items-center gap-0.5 transition-colors"
+                                        title="Reset to default"
+                                    >
+                                        <RotateCcw size={10} /> Reset
+                                    </button>
+                                </div>
+                                <textarea
+                                    value={critterSystemPrompt}
+                                    onChange={(e) => setCritterSystemPrompt(e.target.value)}
+                                    rows={6}
+                                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all text-xs font-mono leading-relaxed resize-y"
+                                />
+                            </div>
+                            <p className="text-[10px] text-gray-400">
+                                ロボットとクリッターの性格・口調を自由にカスタマイズできます
                             </p>
                         </div>
 
