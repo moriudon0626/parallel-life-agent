@@ -18,6 +18,8 @@ import { River } from "./River";
 import { ResourceNodes } from "./ResourceNodes";
 import { AmbientSounds } from "./AmbientSounds";
 import { WildAnimal } from "./WildAnimal";
+import { WeatherEventManager } from "./WeatherEventManager";
+import { BuildingManager } from "./BuildingManager";
 import { useStore } from "../store";
 import { useShallow } from "zustand/react/shallow";
 import { WILD_ANIMAL_DEFS } from "../lib/wildAnimals";
@@ -134,6 +136,12 @@ export const Experience = () => {
 
             {/* Ambient Sound Manager */}
             <AmbientSounds />
+
+            {/* Weather Event Manager */}
+            <WeatherEventManager />
+
+            {/* Building Manager */}
+            <BuildingManager />
 
             {/* Post-processing effects */}
             <PostProcessing />

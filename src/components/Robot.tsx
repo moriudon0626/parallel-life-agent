@@ -12,8 +12,9 @@ import { createMemory, selectRelevantMemories, memoriesToPromptContext } from '.
 import { selectNextActivity, shouldSwitchActivity, getActivityMovementPattern } from '../lib/activities';
 import { getNearbyElements, buildEnvContext } from '../lib/worldElements';
 import { decayNeeds, satisfyNeed, computeDesires, needsToDialogueContext, createDefaultNeeds, type NeedsState } from '../lib/needs';
-import { getNearbyResources } from '../lib/resources';
+import { getNearbyResources, attemptGatherResource, consumeResource, getResourceValue } from '../lib/resources';
 import { getTerrainHeight } from '../lib/terrain';
+import { updateRobotBattery, updateRobotTemperature } from '../lib/survival';
 
 // Cooldown for memory and dialogue prevents spamming
 const lastSeen: Record<string, number> = {};
@@ -256,6 +257,47 @@ ${name}に会った。${envContext}。
             lastNeedsSync.current = t;
         }
 
+        // Robot Status Management (battery, durability, temperature)
+        const robotStatus = storeForNeeds.robotStatus;
+        const delta = state.clock.getDelta();
+        const activity: 'idle' | 'moving' | 'working' =
+            robotState === 'MOVING' ? 'moving' :
+            robotState === 'DIALOGUE' ? 'working' :
+            'idle';
+
+        // Battery consumption
+        let updatedStatus = updateRobotBattery(robotStatus, delta / 60, activity); // delta is in seconds, convert to minutes
+
+        // Solar charging during sunny day
+        if (!isNight && storeForNeeds.weather === 'sunny') {
+            updatedStatus = {
+                ...updatedStatus,
+                battery: Math.min(100, updatedStatus.battery + (2.0 * delta / 60)) // SOLAR_CHARGE_RATE
+            };
+        }
+
+        // Temperature update based on environment
+        updatedStatus = updateRobotTemperature(updatedStatus, storeForNeeds.temperature, delta);
+
+        // Update store if changed
+        if (updatedStatus.battery !== robotStatus.battery ||
+            updatedStatus.durability !== robotStatus.durability ||
+            updatedStatus.temperature !== robotStatus.temperature ||
+            updatedStatus.malfunctioning !== robotStatus.malfunctioning) {
+
+            // Check for critical状態变化 and log
+            if (!robotStatus.malfunctioning && updatedStatus.malfunctioning) {
+                storeForNeeds.addActivityLog({
+                    category: 'warning',
+                    importance: 'critical',
+                    entityId: 'robot',
+                    content: '⚠️ ロボットのバッテリーが切れました！機能停止中...',
+                });
+            }
+
+            storeForNeeds.updateRobotStatus(updatedStatus);
+        }
+
         // Energy node charging: if near energy node, recharge
         if (rigidRef.current) {
             const rp = rigidRef.current.translation();
@@ -267,6 +309,56 @@ ${name}に会った。${envContext}。
                     r.id === energyNodes[0].id ? { ...r, capacity: Math.max(0, r.capacity - 0.02 * state.clock.getDelta()) } : r
                 );
                 useStore.setState({ resourceNodes: updated });
+            }
+
+            // Resource gathering: materials for building
+            const materialNodes = getNearbyResources(storeForNeeds.resourceNodes, rp.x, rp.z, 2.5, ['scrap_metal', 'fiber', 'crystal']);
+            if (materialNodes.length > 0 && Math.random() < 0.02) { // 2% chance per frame to gather
+                const node = materialNodes[0];
+                const hasTool = false; // TODO: Check inventory for tools
+                const result = attemptGatherResource(node, hasTool);
+
+                if (result.success) {
+                    // Add to inventory
+                    const materialType = node.type as 'scrap_metal' | 'fiber' | 'crystal';
+                    const effectiveAmount = Math.floor(getResourceValue(node, result.amount) * 10); // Convert to integer
+                    storeForNeeds.addInventoryItem(materialType, effectiveAmount);
+
+                    // Consume from node
+                    const updated = consumeResource(storeForNeeds.resourceNodes, node.id, result.amount);
+                    useStore.setState({ resourceNodes: updated });
+
+                    // Log gathering
+                    storeForNeeds.addActivityLog({
+                        category: 'event',
+                        importance: 'normal',
+                        entityId: 'robot',
+                        content: `🔨 ${node.name}を採取しました（×${effectiveAmount}）`,
+                    });
+
+                    // Damage if dangerous
+                    if (result.damaged) {
+                        const damagedStatus = {
+                            ...storeForNeeds.robotStatus,
+                            durability: Math.max(0, storeForNeeds.robotStatus.durability - 5)
+                        };
+                        storeForNeeds.updateRobotStatus(damagedStatus);
+                        storeForNeeds.addActivityLog({
+                            category: 'warning',
+                            importance: 'normal',
+                            entityId: 'robot',
+                            content: `⚠️ 採取中にダメージを受けました（-5 耐久度）`,
+                        });
+                    }
+
+                    // Add memory
+                    storeForNeeds.addRobotMemory(createMemory(
+                        `${node.name}を採取した`,
+                        'event',
+                        ['resource'],
+                        0.5
+                    ));
+                }
             }
         }
 

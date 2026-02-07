@@ -374,6 +374,15 @@ ${directionPrompt}1〜2文で。大げさ禁止。日本語で。
             // Death
             if (lifecycleRef.current.healthStatus === 'dead' && !isDying.current) {
                 isDying.current = true;
+
+                // Add death log
+                useStore.getState().addActivityLog({
+                    category: 'death',
+                    importance: 'high',
+                    entityId: name,
+                    content: `💀 ${name} が死亡しました（世代: ${lifecycleRef.current.generation}）`,
+                });
+
                 // Fade out and remove
                 const fadeInterval = setInterval(() => {
                     setOpacity(prev => {
@@ -430,6 +439,15 @@ ${directionPrompt}1〜2文で。大げさ禁止。日本語で。
                         isAlive: true,
                         generation: gen,
                     });
+
+                    // Add birth log
+                    store.addActivityLog({
+                        category: 'event',
+                        importance: 'high',
+                        entityId: childId,
+                        content: `🐣 ${childId} が誕生しました！親: ${name}（世代: ${gen}）`,
+                    });
+
                     // Memory and emotion
                     store.addCritterMemory(name, createMemory(`子供(${childId})が生まれた！`, 'event', [name, childId], 0.9, 0.5));
                     emotionRef.current = applyEmotionEvent(emotionRef.current, 'new_birth');

@@ -14,6 +14,7 @@ import { createDefaultRobotStatus, createDefaultCritterStatus } from './lib/surv
 import type { Building } from './lib/building';
 import type { RealtimeScore, ScoreChange, TimelineEvent, Achievement } from './lib/scoring';
 import { calculateRealtimeScore } from './lib/scoring';
+import type { WeatherEvent } from './lib/environment';
 
 // === NEW PHASE 1 TYPES ===
 
@@ -316,6 +317,12 @@ interface AppState {
     inventory: Record<string, number>;
     addInventoryItem: (item: string, amount: number) => void;
     removeInventoryItem: (item: string, amount: number) => boolean;
+
+    // Weather Event System
+    currentWeatherEvent: WeatherEvent | null;
+    weatherEventWarningShown: boolean;
+    setWeatherEvent: (event: WeatherEvent | null) => void;
+    setWeatherEventWarningShown: (shown: boolean) => void;
 }
 
 export const useStore = create<AppState>()(
@@ -701,6 +708,12 @@ export const useStore = create<AppState>()(
                 }));
                 return true;
             },
+
+            // Weather Event System
+            currentWeatherEvent: null,
+            weatherEventWarningShown: false,
+            setWeatherEvent: (event) => set({ currentWeatherEvent: event, weatherEventWarningShown: false }),
+            setWeatherEventWarningShown: (shown) => set({ weatherEventWarningShown: shown }),
         }),
         {
             name: 'agent-storage',

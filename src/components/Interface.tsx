@@ -286,22 +286,22 @@ export const Interface = () => {
                         <button
                             onClick={() => useStore.getState().setDialogueBusy(false)}
                             className="flex-1 text-[8px] bg-gray-100 hover:bg-red-50 text-gray-400 hover:text-red-500 px-2 py-1 rounded transition-colors uppercase tracking-widest font-bold"
-                            title="Reset System State"
+                            title="システム状態をリセット"
                         >
-                            Reset
+                            リセット
                         </button>
                         <button
                             onClick={stopAllSpeech}
                             className="flex-1 text-[8px] bg-gray-100 hover:bg-orange-50 text-gray-400 hover:text-orange-500 px-2 py-1 rounded transition-colors uppercase tracking-widest font-bold flex items-center justify-center gap-1"
-                            title="Clear All Speech"
+                            title="すべての音声をクリア"
                         >
                             <VolumeX size={10} />
-                            Clear
+                            クリア
                         </button>
                         <div className="flex items-center gap-1 shrink-0 ml-1">
                             <span className={`w-1.5 h-1.5 rounded-full ${useStore((s) => s.isDialogueBusy) ? 'bg-red-400 animate-pulse' : 'bg-green-400'}`}></span>
                             <span className="text-[8px] text-gray-400 font-bold uppercase tracking-widest">
-                                {useStore((s) => s.isDialogueBusy) ? 'Busy' : 'Ready'}
+                                {useStore((s) => s.isDialogueBusy) ? '処理中' : '待機'}
                             </span>
                         </div>
                     </div>
@@ -523,7 +523,7 @@ export const Interface = () => {
                                             : "bg-gray-100 text-gray-500 hover:bg-gray-200"
                                     )}
                                 >
-                                    {tab === 'all' ? 'All' : tab}
+                                    {tab === 'all' ? 'すべて' : tab}
                                 </button>
                             ))}
                         </div>
@@ -662,14 +662,14 @@ export const Interface = () => {
                         }
                     }}
                     className="p-3 bg-white/90 backdrop-blur-md rounded-full shadow-lg hover:bg-white transition-colors text-orange-500"
-                    title="Fly to Robot"
+                    title="ロボットを表示"
                 >
                     <Locate size={22} />
                 </button>
                 <button
                     onClick={toggleSettings}
                     className="p-3 bg-white/90 backdrop-blur-md rounded-full shadow-lg hover:bg-white transition-colors text-gray-700"
-                    title="Settings"
+                    title="設定"
                 >
                     <Settings size={22} />
                 </button>
@@ -739,7 +739,7 @@ export const Interface = () => {
                             {ttsProvider === 'openai' && (
                                 <>
                                     <div className="mb-2">
-                                        <label className="block text-xs font-medium text-gray-600 mb-1">Robot Voice</label>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">ロボットの声</label>
                                         <select
                                             value={openaiRobotVoice}
                                             onChange={(e) => setOpenaiRobotVoice(e.target.value)}
@@ -751,7 +751,7 @@ export const Interface = () => {
                                         </select>
                                     </div>
                                     <div className="mb-2">
-                                        <label className="block text-xs font-medium text-gray-600 mb-1">Critter Voice</label>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">クリッターの声</label>
                                         <select
                                             value={openaiCritterVoice}
                                             onChange={(e) => setOpenaiCritterVoice(e.target.value)}
@@ -781,7 +781,7 @@ export const Interface = () => {
                                         />
                                     </div>
                                     <div className="mb-3">
-                                        <label className="block text-xs font-medium text-gray-600 mb-1">Robot Voice ID</label>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">ロボットの声ID</label>
                                         <input
                                             type="text"
                                             value={robotVoiceId}
@@ -791,7 +791,7 @@ export const Interface = () => {
                                         />
                                     </div>
                                     <div className="mb-2">
-                                        <label className="block text-xs font-medium text-gray-600 mb-1">Critter Voice ID</label>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">クリッターの声ID</label>
                                         <input
                                             type="text"
                                             value={critterVoiceId}
@@ -815,11 +815,11 @@ export const Interface = () => {
 
                         {/* Ambient Sound Settings */}
                         <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                            <h3 className="text-sm font-bold text-gray-700 mb-3">Ambient Sounds</h3>
+                            <h3 className="text-sm font-bold text-gray-700 mb-3">環境音設定</h3>
                             <div className="flex items-center justify-between mb-3">
                                 <label className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
                                     <Volume2 size={14} />
-                                    Enable Ambient Sounds
+                                    環境音を有効化
                                 </label>
                                 <button
                                     onClick={() => setAmbientSoundsEnabled(!ambientSoundsEnabled)}
@@ -856,16 +856,16 @@ export const Interface = () => {
 
                         {/* System Prompts */}
                         <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                            <h3 className="text-sm font-bold text-gray-700 mb-3">System Prompts</h3>
+                            <h3 className="text-sm font-bold text-gray-700 mb-3">システムプロンプト</h3>
                             <div className="mb-3">
                                 <div className="flex items-center justify-between mb-1">
-                                    <label className="block text-xs font-medium text-gray-600">Robot Prompt</label>
+                                    <label className="block text-xs font-medium text-gray-600">ロボットのプロンプト</label>
                                     <button
                                         onClick={() => setRobotSystemPrompt(DEFAULT_ROBOT_SYSTEM_PROMPT)}
                                         className="text-[10px] text-gray-400 hover:text-blue-500 flex items-center gap-0.5 transition-colors"
-                                        title="Reset to default"
+                                        title="デフォルトに戻す"
                                     >
-                                        <RotateCcw size={10} /> Reset
+                                        <RotateCcw size={10} /> リセット
                                     </button>
                                 </div>
                                 <textarea
@@ -877,13 +877,13 @@ export const Interface = () => {
                             </div>
                             <div className="mb-2">
                                 <div className="flex items-center justify-between mb-1">
-                                    <label className="block text-xs font-medium text-gray-600">Critter Prompt</label>
+                                    <label className="block text-xs font-medium text-gray-600">クリッターのプロンプト</label>
                                     <button
                                         onClick={() => setCritterSystemPrompt(DEFAULT_CRITTER_SYSTEM_PROMPT)}
                                         className="text-[10px] text-gray-400 hover:text-blue-500 flex items-center gap-0.5 transition-colors"
-                                        title="Reset to default"
+                                        title="デフォルトに戻す"
                                     >
-                                        <RotateCcw size={10} /> Reset
+                                        <RotateCcw size={10} /> リセット
                                     </button>
                                 </div>
                                 <textarea
@@ -903,13 +903,13 @@ export const Interface = () => {
                                 onClick={clearMessages}
                                 className="text-red-500 text-sm flex items-center gap-1 hover:text-red-700"
                             >
-                                <Trash2 size={16} /> Data Reset
+                                <Trash2 size={16} /> データリセット
                             </button>
                             <button
                                 onClick={toggleSettings}
                                 className="px-6 py-2 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-colors"
                             >
-                                Close
+                                閉じる
                             </button>
                         </div>
                     </div>
@@ -978,7 +978,7 @@ export const Interface = () => {
                                     type="text"
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
-                                    placeholder={apiKey ? "Message..." : "Set API Key first"}
+                                    placeholder={apiKey ? "メッセージを入力..." : "APIキーを設定してください"}
                                     disabled={!apiKey}
                                     className="w-full pl-4 pr-12 py-3 bg-white border border-gray-200 rounded-full focus:ring-2 focus:ring-blue-500/50 outline-none transition-all shadow-sm text-sm"
                                 />
