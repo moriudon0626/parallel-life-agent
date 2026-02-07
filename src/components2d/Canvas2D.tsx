@@ -19,6 +19,7 @@ export function Canvas2D() {
   const resourceNodes = useStore((state) => state.resourceNodes);
   const buildings = useStore((state) => state.buildings);
   const critterRegistry = useStore((state) => state.critterRegistry);
+  const camera2DTarget = useStore((state) => state.camera2DTarget);
 
   // Critter entity instances (runtime state, not in Zustand)
   const critterEntitiesRef = useRef<Map<string, CritterEntity>>(new Map());
@@ -27,6 +28,15 @@ export function Canvas2D() {
   useEffect(() => {
     initRobot();
   }, []);
+
+  // Watch for camera target changes (from locate button)
+  useEffect(() => {
+    if (camera2DTarget) {
+      setCamera(camera2DTarget);
+      // Clear target after applying
+      useStore.getState().setCamera2DTarget(null);
+    }
+  }, [camera2DTarget, setCamera]);
 
   // Camera follow robot - update every frame
   // (Camera follows robot position which updates in the game loop)

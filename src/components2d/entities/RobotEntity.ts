@@ -30,7 +30,7 @@ import {
 import type { ActivityState } from '../../lib/activities';
 import { getNearbyElements } from '../../lib/worldElements';
 import { getNearbyResources, attemptGatherResource, consumeResource, getResourceValue } from '../../lib/resources';
-import { getTerrainHeight } from '../../lib/terrain';
+// import { getTerrainHeight } from '../../lib/terrain'; // Not used in 2D version yet
 import { isWeatherEventActive, SHELTER_TYPES } from '../../lib/environment';
 import { createBuilding, canBuildHere, hasRequiredMaterials, consumeMaterials, getBuildingEffect } from '../../lib/building';
 import { generateThought, type ThoughtResult } from '../../lib/llm';
