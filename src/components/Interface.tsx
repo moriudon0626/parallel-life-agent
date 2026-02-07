@@ -374,6 +374,26 @@ export const Interface = () => {
                         <span>💀 死者: {realtimeScore.stats.deathCount}</span>
                         <span>🏛️ 建物: {realtimeScore.stats.structureCount}</span>
                     </div>
+
+                    {/* 最近のスコア変更 */}
+                    {realtimeScore.recentChanges.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-gray-200">
+                            <div className="text-[9px] font-bold text-gray-400 uppercase mb-1.5">最近の変更</div>
+                            <div className="space-y-1 max-h-24 overflow-y-auto scrollbar-thin">
+                                {realtimeScore.recentChanges.slice(-5).reverse().map((change, i) => (
+                                    <div key={`${change.timestamp}-${i}`} className="flex items-center gap-1.5 text-[9px]">
+                                        <span className={clsx(
+                                            "font-bold",
+                                            change.type === 'gain' ? 'text-green-600' : 'text-red-600'
+                                        )}>
+                                            {change.type === 'gain' ? '+' : '-'}{change.amount}
+                                        </span>
+                                        <span className="text-gray-600 truncate flex-1">{change.reason}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 

@@ -265,14 +265,20 @@ ${name}に会った。${envContext}。
             robotState === 'DIALOGUE' ? 'working' :
             'idle';
 
-        // Battery consumption
+        // Battery consumption (increased for visibility)
         let updatedStatus = updateRobotBattery(robotStatus, delta / 60, activity); // delta is in seconds, convert to minutes
 
-        // Solar charging during sunny day
+        // Additional battery drain for testing (can be adjusted)
+        updatedStatus = {
+            ...updatedStatus,
+            battery: Math.max(0, updatedStatus.battery - (0.5 * delta / 60)) // Extra 0.5% per minute
+        };
+
+        // Solar charging during sunny day (reduced for balance)
         if (!isNight && storeForNeeds.weather === 'sunny') {
             updatedStatus = {
                 ...updatedStatus,
-                battery: Math.min(100, updatedStatus.battery + (2.0 * delta / 60)) // SOLAR_CHARGE_RATE
+                battery: Math.min(100, updatedStatus.battery + (1.0 * delta / 60)) // Reduced SOLAR_CHARGE_RATE
             };
         }
 
@@ -312,8 +318,8 @@ ${name}に会った。${envContext}。
             }
 
             // Resource gathering: materials for building
-            const materialNodes = getNearbyResources(storeForNeeds.resourceNodes, rp.x, rp.z, 2.5, ['scrap_metal', 'fiber', 'crystal']);
-            if (materialNodes.length > 0 && Math.random() < 0.02) { // 2% chance per frame to gather
+            const materialNodes = getNearbyResources(storeForNeeds.resourceNodes, rp.x, rp.z, 3.0, ['scrap_metal', 'fiber', 'crystal']);
+            if (materialNodes.length > 0 && Math.random() < 0.15) { // 15% chance per frame to gather
                 const node = materialNodes[0];
                 const hasTool = false; // TODO: Check inventory for tools
                 const result = attemptGatherResource(node, hasTool);
