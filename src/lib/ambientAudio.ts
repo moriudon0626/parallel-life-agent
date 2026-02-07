@@ -227,11 +227,11 @@ export class AmbientAudioManager {
         const isDay = !isNight;
         const isRaining = weather === 'rainy';
 
-        // Wind: always present, louder at night and during rain
+        // Wind: disabled (user request - irritating sound)
         if (this.windNode) {
-            let windVol = 0.35;
-            if (isNight) windVol = 0.50;
-            if (isRaining) windVol = 0.70;
+            let windVol = 0; // Disabled
+            // if (isNight) windVol = 0.50;
+            // if (isRaining) windVol = 0.70;
             this.windNode.gain.gain.setTargetAtTime(windVol, ct, 2.0);
         }
 
