@@ -546,6 +546,14 @@ ${needsCtx ? needsCtx : ''}
                         color: color,
                     });
 
+                    // Add to activity log
+                    useStore.getState().addActivityLog({
+                        category: 'thought',
+                        importance: 'low',
+                        entityId: name,
+                        content: `[${name}] ${result.action}: ${result.thought}`,
+                    });
+
                     useStore.getState().addCritterMemory(name, createMemory(
                         `[思考] ${result.thought}`,
                         'observation',

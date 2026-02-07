@@ -308,10 +308,10 @@ export const Interface = () => {
                 </div>
             </div>
 
-            {/* Score Panel (Top Right, below settings) */}
+            {/* スコアパネル（右上、設定ボタンの下） */}
             <div className="absolute top-20 right-4 pointer-events-auto z-50">
                 <div className="px-5 py-4 bg-white/85 backdrop-blur-lg rounded-2xl shadow-xl border border-white/40 min-w-[280px]">
-                    {/* Total Score & Rank */}
+                    {/* 総合スコアとランク */}
                     <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
                             <Award size={20} className="text-yellow-500" />
@@ -332,12 +332,12 @@ export const Interface = () => {
                         </div>
                     </div>
 
-                    {/* Progress to Next Rank */}
+                    {/* 次ランクへの進捗 */}
                     {realtimeScore.rank.nextRank && (
                         <div className="mb-3">
                             <div className="flex justify-between text-[10px] font-bold text-gray-500 mb-1">
-                                <span>Next: {realtimeScore.rank.nextRank}</span>
-                                <span>{realtimeScore.rank.pointsToNext.toLocaleString()} pts</span>
+                                <span>次のランク: {realtimeScore.rank.nextRank}</span>
+                                <span>あと {realtimeScore.rank.pointsToNext.toLocaleString()} pt</span>
                             </div>
                             <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                                 <div
@@ -348,49 +348,49 @@ export const Interface = () => {
                         </div>
                     )}
 
-                    {/* Score Breakdown */}
+                    {/* スコア内訳 */}
                     <div className="space-y-1.5 text-xs">
                         <div className="flex justify-between items-center">
-                            <span className="text-gray-600 font-medium">🛡️ Survival</span>
+                            <span className="text-gray-600 font-medium">🛡️ 生存</span>
                             <span className="font-bold text-green-600">{realtimeScore.current.survival.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                            <span className="text-gray-600 font-medium">🏗️ Development</span>
+                            <span className="text-gray-600 font-medium">🏗️ 発展</span>
                             <span className="font-bold text-blue-600">{realtimeScore.current.development.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                            <span className="text-gray-600 font-medium">⚔️ Combat</span>
+                            <span className="text-gray-600 font-medium">⚔️ 戦闘</span>
                             <span className="font-bold text-red-600">{realtimeScore.current.combat.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                            <span className="text-gray-600 font-medium">📚 Knowledge</span>
+                            <span className="text-gray-600 font-medium">📚 知識</span>
                             <span className="font-bold text-purple-600">{realtimeScore.current.knowledge.toLocaleString()}</span>
                         </div>
                     </div>
 
-                    {/* Quick Stats */}
+                    {/* クイック統計 */}
                     <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-between text-[10px] font-bold text-gray-500">
-                        <span>👥 Pop: {realtimeScore.stats.population}</span>
-                        <span>💀 Deaths: {realtimeScore.stats.deathCount}</span>
-                        <span>🏛️ Buildings: {realtimeScore.stats.structureCount}</span>
+                        <span>👥 人口: {realtimeScore.stats.population}</span>
+                        <span>💀 死者: {realtimeScore.stats.deathCount}</span>
+                        <span>🏛️ 建物: {realtimeScore.stats.structureCount}</span>
                     </div>
                 </div>
             </div>
 
-            {/* Robot Status Panel (Below Environment Panel) */}
+            {/* ロボットステータスパネル（環境パネルの下） */}
             <div className="absolute top-[180px] left-4 pointer-events-auto z-50">
                 <div className="px-4 py-3 bg-white/85 backdrop-blur-lg rounded-2xl shadow-xl border border-white/40 min-w-[180px]">
                     <div className="flex items-center gap-2 mb-2">
                         <Wrench size={14} className="text-orange-500" />
-                        <span className="text-xs font-bold text-gray-700">Unit-01 Status</span>
+                        <span className="text-xs font-bold text-gray-700">Unit-01 状態</span>
                     </div>
 
-                    {/* Battery */}
+                    {/* バッテリー */}
                     <div className="mb-2">
                         <div className="flex items-center justify-between mb-1">
                             <div className="flex items-center gap-1">
                                 <Battery size={12} className={robotStatus.battery > 20 ? 'text-green-500' : 'text-red-500'} />
-                                <span className="text-[10px] font-medium text-gray-600">Battery</span>
+                                <span className="text-[10px] font-medium text-gray-600">バッテリー</span>
                             </div>
                             <span className="text-[10px] font-bold text-gray-900">{robotStatus.battery.toFixed(0)}%</span>
                         </div>
@@ -407,10 +407,10 @@ export const Interface = () => {
                         </div>
                     </div>
 
-                    {/* Durability */}
+                    {/* 耐久度 */}
                     <div className="mb-2">
                         <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] font-medium text-gray-600">⚙️ Durability</span>
+                            <span className="text-[10px] font-medium text-gray-600">⚙️ 耐久度</span>
                             <span className="text-[10px] font-bold text-gray-900">{robotStatus.durability.toFixed(0)}%</span>
                         </div>
                         <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
@@ -426,9 +426,9 @@ export const Interface = () => {
                         </div>
                     </div>
 
-                    {/* Temperature */}
+                    {/* 内部温度 */}
                     <div className="flex items-center justify-between text-[10px]">
-                        <span className="font-medium text-gray-600">🌡️ Internal Temp</span>
+                        <span className="font-medium text-gray-600">🌡️ 内部温度</span>
                         <span className={clsx(
                             "font-bold",
                             robotStatus.temperature < 0 || robotStatus.temperature > 40 ? 'text-red-600' :
@@ -439,22 +439,22 @@ export const Interface = () => {
                         </span>
                     </div>
 
-                    {/* Status Warnings */}
+                    {/* 状態警告 */}
                     {(robotStatus.malfunctioning || robotStatus.overheated || robotStatus.frozen) && (
                         <div className="mt-2 pt-2 border-t border-gray-200 space-y-1">
                             {robotStatus.malfunctioning && (
                                 <div className="text-[9px] font-bold text-red-600 flex items-center gap-1">
-                                    ⚠️ MALFUNCTIONING
+                                    ⚠️ 故障
                                 </div>
                             )}
                             {robotStatus.overheated && (
                                 <div className="text-[9px] font-bold text-orange-600 flex items-center gap-1">
-                                    🔥 OVERHEATED
+                                    🔥 過熱
                                 </div>
                             )}
                             {robotStatus.frozen && (
                                 <div className="text-[9px] font-bold text-blue-600 flex items-center gap-1">
-                                    ❄️ FROZEN
+                                    ❄️ 凍結
                                 </div>
                             )}
                         </div>
@@ -462,17 +462,17 @@ export const Interface = () => {
                 </div>
             </div>
 
-            {/* Inventory Panel (Below Robot Status) */}
+            {/* インベントリパネル（ロボットステータスの下） */}
             <div className="absolute top-[380px] left-4 pointer-events-auto z-50">
                 <div className="px-4 py-3 bg-white/85 backdrop-blur-lg rounded-2xl shadow-xl border border-white/40 min-w-[180px]">
                     <div className="flex items-center gap-2 mb-2">
                         <Package size={14} className="text-blue-500" />
-                        <span className="text-xs font-bold text-gray-700">Inventory</span>
+                        <span className="text-xs font-bold text-gray-700">所持品</span>
                     </div>
 
                     <div className="space-y-1.5 text-[10px]">
                         {Object.entries(inventory).length === 0 ? (
-                            <div className="text-gray-400 text-center py-2">Empty</div>
+                            <div className="text-gray-400 text-center py-2">空</div>
                         ) : (
                             Object.entries(inventory)
                                 .filter(([, amount]) => amount > 0)
@@ -563,44 +563,53 @@ export const Interface = () => {
                 )}
             </div>
 
-            {/* Activity Log Panel (Bottom Left) */}
+            {/* アクティビティログパネル（左下） */}
             <div className="absolute bottom-6 left-6 pointer-events-auto z-40 w-[380px]">
                 <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-white/40 overflow-hidden max-h-[40vh] flex flex-col">
-                    {/* Header with Filters */}
+                    {/* ヘッダーとフィルター */}
                     <div className="px-3 py-2 bg-gradient-to-r from-green-50 to-blue-50 border-b border-gray-100">
                         <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
                                 <Activity size={14} className="text-green-600" />
-                                <span className="text-xs font-bold text-gray-700">Activity Log</span>
+                                <span className="text-xs font-bold text-gray-700">アクティビティログ</span>
                             </div>
                             <span className="text-[10px] font-bold text-gray-400">
-                                {filteredLog.length} events
+                                {filteredLog.length} 件
                             </span>
                         </div>
-                        {/* Filter Buttons */}
+                        {/* フィルターボタン */}
                         <div className="flex gap-1 overflow-x-auto scrollbar-thin">
-                            {(['all', 'thought', 'event', 'discovery', 'combat', 'death', 'build', 'warning'] as const).map(filter => (
+                            {([
+                                { key: 'all', label: '全て' },
+                                { key: 'thought', label: '思考' },
+                                { key: 'event', label: 'イベント' },
+                                { key: 'discovery', label: '発見' },
+                                { key: 'combat', label: '戦闘' },
+                                { key: 'death', label: '死亡' },
+                                { key: 'build', label: '建設' },
+                                { key: 'warning', label: '警告' }
+                            ] as const).map(({ key, label }) => (
                                 <button
-                                    key={filter}
-                                    onClick={() => setLogFilter(filter)}
+                                    key={key}
+                                    onClick={() => setLogFilter(key as typeof logFilter)}
                                     className={clsx(
-                                        "px-2 py-0.5 rounded text-[9px] font-bold whitespace-nowrap transition-colors uppercase tracking-wide",
-                                        logFilter === filter
+                                        "px-2 py-0.5 rounded text-[9px] font-bold whitespace-nowrap transition-colors",
+                                        logFilter === key
                                             ? "bg-green-500 text-white"
                                             : "bg-white text-gray-500 hover:bg-gray-100"
                                     )}
                                 >
-                                    {filter}
+                                    {label}
                                 </button>
                             ))}
                         </div>
                     </div>
 
-                    {/* Log Entries */}
+                    {/* ログエントリ */}
                     <div className="overflow-y-auto p-2 space-y-1 scrollbar-thin scrollbar-thumb-gray-200 max-h-[calc(40vh-80px)]">
                         {filteredLog.length === 0 && (
                             <div className="text-center text-gray-400 text-xs py-4">
-                                No activity yet
+                                まだ活動記録がありません
                             </div>
                         )}
                         {filteredLog.slice(-20).reverse().map((entry, i) => (

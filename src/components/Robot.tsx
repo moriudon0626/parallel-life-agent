@@ -355,6 +355,14 @@ ${memContext}`;
                         gameTime: gameTimeStr,
                     });
 
+                    // Add to activity log
+                    useStore.getState().addActivityLog({
+                        category: 'thought',
+                        importance: 'normal',
+                        entityId: 'robot',
+                        content: `${result.action}: ${result.thought}`,
+                    });
+
                     // Store as memory
                     useStore.getState().addRobotMemory(createMemory(
                         `[思考] ${result.thought}`,
