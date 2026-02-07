@@ -391,7 +391,7 @@ export const useStore = create<AppState>()(
 
             robotMemories: [],
             addRobotMemory: (memory) => set((state) => {
-                const updated = pruneMemories([...state.robotMemories, memory], 50);
+                const updated = pruneMemories([...state.robotMemories, memory], 25);
                 return { robotMemories: updated };
             }),
 
@@ -631,7 +631,8 @@ export const useStore = create<AppState>()(
             },
             updateRealtimeScore: () => {
                 const state = get();
-                const score = calculateRealtimeScore(
+                const prevScore = state.realtimeScore;
+                const newScore = calculateRealtimeScore(
                     state.day,
                     state.critterRegistry,
                     state.robotMemories,
@@ -639,7 +640,45 @@ export const useStore = create<AppState>()(
                     state.robotStatus.durability > 0 && !state.robotStatus.malfunctioning,
                     state.combatStats
                 );
-                set({ realtimeScore: score });
+
+                // Detect changes and add to recentChanges
+                const changes: ScoreChange[] = [...prevScore.recentChanges];
+                const totalDiff = newScore.current.total - prevScore.current.total;
+
+                if (totalDiff > 0) {
+                    // Determine reason
+                    let reason = 'スコア増加';
+                    let category: ScoreChange['category'] = 'survival';
+
+                    if (newScore.current.survival > prevScore.current.survival) {
+                        reason = '生存ボーナス';
+                        category = 'survival';
+                    } else if (newScore.current.development > prevScore.current.development) {
+                        reason = '開発ボーナス';
+                        category = 'development';
+                    } else if (newScore.current.knowledge > prevScore.current.knowledge) {
+                        reason = '知識獲得';
+                        category = 'knowledge';
+                    }
+
+                    changes.push({
+                        type: 'gain',
+                        amount: Math.floor(totalDiff),
+                        reason,
+                        category,
+                        timestamp: Date.now(),
+                    });
+                } else if (totalDiff < 0) {
+                    changes.push({
+                        type: 'loss',
+                        amount: Math.floor(Math.abs(totalDiff)),
+                        reason: '死亡ペナルティ',
+                        category: 'survival',
+                        timestamp: Date.now(),
+                    });
+                }
+
+                set({ realtimeScore: { ...newScore, recentChanges: changes.slice(-10) } });
             },
             addScoreChange: (type, amount, reason, category) => {
                 set((state) => ({

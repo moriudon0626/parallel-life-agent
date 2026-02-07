@@ -168,7 +168,7 @@ export function calculateRealtimeScore(
       catastrophesSurvived: combatStats.catastrophesSurvived,
       robotFunctional,
     },
-    recentChanges: [],
+    recentChanges: [], // Preserved from previous state in updateRealtimeScore
   };
 }
 

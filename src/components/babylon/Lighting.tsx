@@ -23,7 +23,7 @@ export function createLighting(scene: Scene) {
 
   // Update lighting every frame
   scene.registerBeforeRender(() => {
-    const time = useStore.getState().timeOfDay;
+    const time = useStore.getState().time;
     const weather = useStore.getState().weather;
 
     const inclination = (time / 24) * Math.PI * 2 - Math.PI / 2;
