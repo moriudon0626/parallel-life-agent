@@ -9,6 +9,26 @@ import { createDefaultNeeds } from './lib/needs';
 import type { ResourceNode } from './lib/resources';
 import { createInitialResources } from './lib/resources';
 import type { LifecycleState } from './lib/lifecycle';
+import type { RobotStatus, CritterStatus } from './lib/survival';
+import { createDefaultRobotStatus, createDefaultCritterStatus } from './lib/survival';
+import type { Building } from './lib/building';
+import type { RealtimeScore, ScoreChange, TimelineEvent, Achievement } from './lib/scoring';
+import { calculateRealtimeScore } from './lib/scoring';
+
+// === NEW PHASE 1 TYPES ===
+
+export interface ActivityLogEntry {
+  id: string;
+  timestamp: number;
+  gameTime: string; // "Day 5, 14:23"
+  category: 'thought' | 'event' | 'dialogue' | 'combat' | 'discovery' | 'death' | 'build' | 'warning';
+  importance: 'low' | 'normal' | 'high' | 'critical';
+  entityId: string; // 'robot' | critter ID
+  title?: string;
+  content: string;
+  icon?: string;
+  relatedEntities?: string[];
+}
 
 // Prune memories: keep top N by importance, but always retain last 5 most recent
 function pruneMemories(memories: Memory[], maxCount: number): Memory[] {
@@ -229,6 +249,13 @@ interface AppState {
     updateEntityNeeds: (entityId: string, needs: NeedsState) => void;
     getEntityNeeds: (entityId: string) => NeedsState;
 
+    // Survival System (NEW - Phase 1)
+    robotStatus: RobotStatus;
+    critterStatuses: Record<string, CritterStatus>;
+    updateRobotStatus: (status: RobotStatus) => void;
+    updateCritterStatus: (critterId: string, status: CritterStatus) => void;
+    getCritterStatus: (critterId: string) => CritterStatus;
+
     // Resource Nodes (runtime)
     resourceNodes: ResourceNode[];
     updateResourceNode: (id: string, node: Partial<ResourceNode>) => void;
@@ -249,6 +276,46 @@ interface AppState {
     // User directive for robot (runtime, consumed by next thought cycle)
     userDirective: string | null;
     setUserDirective: (directive: string | null) => void;
+
+    // === NEW PHASE 1 SYSTEMS ===
+
+    // Building System
+    buildings: Building[];
+    addBuilding: (building: Building) => void;
+    updateBuilding: (id: string, updates: Partial<Building>) => void;
+    removeBuilding: (id: string) => void;
+
+    // Activity Log (unified thought + event log)
+    activityLog: ActivityLogEntry[];
+    addActivityLog: (entry: Omit<ActivityLogEntry, 'id' | 'timestamp' | 'gameTime'>) => void;
+    clearActivityLog: () => void;
+
+    // Realtime Score System
+    realtimeScore: RealtimeScore;
+    updateRealtimeScore: () => void;
+    addScoreChange: (type: 'gain' | 'loss', amount: number, reason: string, category: ScoreChange['category']) => void;
+
+    // Game Timeline
+    timeline: TimelineEvent[];
+    addTimelineEvent: (event: Omit<TimelineEvent, 'day' | 'time'>) => void;
+
+    // Achievements
+    achievements: Achievement[];
+    unlockAchievement: (achievementId: string) => void;
+
+    // Combat Stats (for scoring)
+    combatStats: {
+        wins: number;
+        losses: number;
+        catastrophesSurvived: number;
+    };
+    incrementCombatWins: () => void;
+    incrementCatastrophesSurvived: () => void;
+
+    // Inventory (materials for building)
+    inventory: Record<string, number>;
+    addInventoryItem: (item: string, amount: number) => void;
+    removeInventoryItem: (item: string, amount: number) => boolean;
 }
 
 export const useStore = create<AppState>()(
@@ -459,6 +526,15 @@ export const useStore = create<AppState>()(
             })),
             getEntityNeeds: (entityId) => get().entityNeeds[entityId] || createDefaultNeeds('critter'),
 
+            // Survival System (NEW - Phase 1)
+            robotStatus: createDefaultRobotStatus(),
+            critterStatuses: {},
+            updateRobotStatus: (status) => set({ robotStatus: status }),
+            updateCritterStatus: (critterId, status) => set((state) => ({
+                critterStatuses: { ...state.critterStatuses, [critterId]: status }
+            })),
+            getCritterStatus: (critterId) => get().critterStatuses[critterId] || createDefaultCritterStatus(),
+
             // Resource Nodes (runtime)
             resourceNodes: createInitialResources(),
             updateResourceNode: (id, partial) => set((state) => ({
@@ -494,10 +570,141 @@ export const useStore = create<AppState>()(
             // User directive (runtime)
             userDirective: null,
             setUserDirective: (directive) => set({ userDirective: directive }),
+
+            // === NEW PHASE 1 SYSTEMS ===
+
+            // Building System
+            buildings: [],
+            addBuilding: (building) => set((state) => ({
+                buildings: [...state.buildings, building]
+            })),
+            updateBuilding: (id, updates) => set((state) => ({
+                buildings: state.buildings.map(b => b.id === id ? { ...b, ...updates } : b)
+            })),
+            removeBuilding: (id) => set((state) => ({
+                buildings: state.buildings.filter(b => b.id !== id)
+            })),
+
+            // Activity Log
+            activityLog: [],
+            addActivityLog: (entry) => {
+                const state = get();
+                const hours = Math.floor(state.time);
+                const minutes = Math.floor((state.time % 1) * 60);
+                const gameTime = `Day ${state.day}, ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+
+                const fullEntry: ActivityLogEntry = {
+                    ...entry,
+                    id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                    timestamp: Date.now(),
+                    gameTime,
+                };
+
+                set((state) => ({
+                    activityLog: [...state.activityLog, fullEntry].slice(-100) // Keep last 100
+                }));
+            },
+            clearActivityLog: () => set({ activityLog: [] }),
+
+            // Realtime Score
+            realtimeScore: {
+                current: { survival: 0, development: 0, combat: 0, knowledge: 0, total: 0 },
+                rank: { current: 'D', nextRank: 'C', pointsToNext: 1000, progress: 0 },
+                stats: {
+                    currentDay: 0,
+                    population: 0,
+                    knowledgeCount: 0,
+                    structureCount: 0,
+                    deathCount: 0,
+                    combatWins: 0,
+                    catastrophesSurvived: 0,
+                    robotFunctional: true,
+                },
+                recentChanges: [],
+            },
+            updateRealtimeScore: () => {
+                const state = get();
+                const score = calculateRealtimeScore(
+                    state.day,
+                    state.critterRegistry,
+                    state.robotMemories,
+                    state.buildings,
+                    state.robotStatus.durability > 0 && !state.robotStatus.malfunctioning,
+                    state.combatStats
+                );
+                set({ realtimeScore: score });
+            },
+            addScoreChange: (type, amount, reason, category) => {
+                set((state) => ({
+                    realtimeScore: {
+                        ...state.realtimeScore,
+                        recentChanges: [
+                            ...state.realtimeScore.recentChanges,
+                            { type, amount, reason, category, timestamp: Date.now() }
+                        ].slice(-10)
+                    }
+                }));
+            },
+
+            // Timeline
+            timeline: [],
+            addTimelineEvent: (event) => {
+                const state = get();
+                const fullEvent: TimelineEvent = {
+                    ...event,
+                    day: state.day,
+                    time: state.time,
+                };
+                set((state) => ({
+                    timeline: [...state.timeline, fullEvent]
+                }));
+            },
+
+            // Achievements
+            achievements: [],
+            unlockAchievement: (achievementId) => {
+                // Implementation moved to scoring.ts checkAchievements
+                set((state) => {
+                    if (state.achievements.some(a => a.id === achievementId)) return state;
+                    return state; // Placeholder
+                });
+            },
+
+            // Combat Stats
+            combatStats: {
+                wins: 0,
+                losses: 0,
+                catastrophesSurvived: 0,
+            },
+            incrementCombatWins: () => set((state) => ({
+                combatStats: { ...state.combatStats, wins: state.combatStats.wins + 1 }
+            })),
+            incrementCatastrophesSurvived: () => set((state) => ({
+                combatStats: { ...state.combatStats, catastrophesSurvived: state.combatStats.catastrophesSurvived + 1 }
+            })),
+
+            // Inventory
+            inventory: {
+                fiber: 0,
+                scrap_metal: 0,
+                crystal: 0,
+                high_quality_parts: 0,
+            },
+            addInventoryItem: (item, amount) => set((state) => ({
+                inventory: { ...state.inventory, [item]: (state.inventory[item] || 0) + amount }
+            })),
+            removeInventoryItem: (item, amount) => {
+                const state = get();
+                if ((state.inventory[item] || 0) < amount) return false;
+                set((state) => ({
+                    inventory: { ...state.inventory, [item]: state.inventory[item] - amount }
+                }));
+                return true;
+            },
         }),
         {
             name: 'agent-storage',
-            version: 7,
+            version: 9,
             migrate: (persistedState: any, version: number) => {
                 if (version < 2) {
                     // Migrate string[] memories to Memory[] format
@@ -564,6 +771,26 @@ export const useStore = create<AppState>()(
                 if (version < 7) {
                     persistedState.critterThoughts = persistedState.critterThoughts ?? {};
                 }
+                if (version < 8) {
+                    // Phase 1: Add survival system
+                    persistedState.robotStatus = persistedState.robotStatus ?? createDefaultRobotStatus();
+                    persistedState.critterStatuses = persistedState.critterStatuses ?? {};
+                }
+                if (version < 9) {
+                    // Phase 1: Add building, scoring, activity log, inventory
+                    persistedState.buildings = persistedState.buildings ?? [];
+                    persistedState.activityLog = persistedState.activityLog ?? [];
+                    persistedState.realtimeScore = persistedState.realtimeScore ?? {
+                        current: { survival: 0, development: 0, combat: 0, knowledge: 0, total: 0 },
+                        rank: { current: 'D', nextRank: 'C', pointsToNext: 1000, progress: 0 },
+                        stats: { currentDay: 0, population: 0, knowledgeCount: 0, structureCount: 0, deathCount: 0, combatWins: 0, catastrophesSurvived: 0, robotFunctional: true },
+                        recentChanges: [],
+                    };
+                    persistedState.timeline = persistedState.timeline ?? [];
+                    persistedState.achievements = persistedState.achievements ?? [];
+                    persistedState.combatStats = persistedState.combatStats ?? { wins: 0, losses: 0, catastrophesSurvived: 0 };
+                    persistedState.inventory = persistedState.inventory ?? { fiber: 0, scrap_metal: 0, crystal: 0, high_quality_parts: 0 };
+                }
                 return persistedState;
             },
             partialize: (state) => ({
@@ -594,6 +821,15 @@ export const useStore = create<AppState>()(
                 critterRegistry: state.critterRegistry,
                 robotThoughts: state.robotThoughts,
                 critterThoughts: state.critterThoughts,
+                robotStatus: state.robotStatus,
+                critterStatuses: state.critterStatuses,
+                buildings: state.buildings,
+                activityLog: state.activityLog,
+                realtimeScore: state.realtimeScore,
+                timeline: state.timeline,
+                achievements: state.achievements,
+                combatStats: state.combatStats,
+                inventory: state.inventory,
             }),
         }
     )
