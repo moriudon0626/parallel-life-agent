@@ -52,7 +52,7 @@ export interface GameRecord {
   endedAt: number;
   score: RealtimeScore;
   finalPopulation: number;
-  daysS urvived: number;
+  daysSurvived: number;
   causeOfEnd: 'victory' | 'robot_death' | 'extinction' | 'player_quit';
   timeline: TimelineEvent[];
   achievements: Achievement[];

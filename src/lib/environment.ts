@@ -4,7 +4,6 @@
  */
 
 import type { RobotStatus, CritterStatus } from './survival';
-import { applyEnvironmentalDamage as applyDamageToRobot, getEnvironmentalDamage } from './survival';
 
 // ========================================
 // Types

@@ -3,8 +3,6 @@
  * Phase 1: Basic shelters for survival
  */
 
-import type { ResourceNode } from './resources';
-
 // ========================================
 // Types
 // ========================================
