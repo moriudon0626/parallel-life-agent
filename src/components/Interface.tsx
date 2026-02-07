@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useStore, createMemory } from '../store';
 import type { Message } from '../store';
-import { Send, Settings, Trash2, MessageCircle, X, Minimize2, Sun, Cloud, CloudRain, Snowflake, VolumeX, RotateCcw, Volume2, Thermometer, Brain, ChevronRight, ChevronLeft, Calendar, Locate } from 'lucide-react';
+import { Send, Settings, Trash2, MessageCircle, X, Minimize2, Sun, Cloud, CloudRain, Snowflake, VolumeX, RotateCcw, Volume2, Thermometer, Brain, ChevronRight, ChevronLeft, Calendar, Locate, Award, Activity, Battery, Wrench, Package } from 'lucide-react';
 import clsx from 'clsx';
 import { streamResponse, DEFAULT_ROBOT_SYSTEM_PROMPT, DEFAULT_CRITTER_SYSTEM_PROMPT } from '../lib/llm';
 import { stopAllSpeech } from '../lib/speech';
@@ -48,6 +48,13 @@ export const Interface = () => {
     const season = useStore(s => s.season);
     const robotThoughts = useStore(s => s.robotThoughts);
     const critterThoughts = useStore(s => s.critterThoughts);
+
+    // Phase 1: New systems
+    const realtimeScore = useStore(s => s.realtimeScore);
+    const activityLog = useStore(s => s.activityLog);
+    const robotStatus = useStore(s => s.robotStatus);
+    const inventory = useStore(s => s.inventory);
+    const updateRealtimeScore = useStore(s => s.updateRealtimeScore);
     const critterRegistry = useStore(s => s.critterRegistry);
 
     const [input, setInput] = useState("");
@@ -56,11 +63,28 @@ export const Interface = () => {
     const thoughtScrollRef = useRef<HTMLDivElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
 
+    // Phase 1: Activity log filter
+    const [logFilter, setLogFilter] = useState<'all' | 'thought' | 'event' | 'discovery' | 'combat' | 'death' | 'build' | 'warning'>('all');
+
+    // Phase 1: Update score periodically
+    useEffect(() => {
+        const interval = setInterval(() => {
+            updateRealtimeScore();
+        }, 5000); // Update every 5 seconds
+        return () => clearInterval(interval);
+    }, [updateRealtimeScore]);
+
     // Season label
     const seasonLabel = useMemo(() => {
         const labels: Record<string, string> = { spring: 'Spring', summer: 'Summer', autumn: 'Autumn', winter: 'Winter' };
         return labels[season] || 'Spring';
     }, [season]);
+
+    // Phase 1: Filtered activity log
+    const filteredLog = useMemo(() => {
+        if (logFilter === 'all') return activityLog;
+        return activityLog.filter(entry => entry.category === logFilter);
+    }, [activityLog, logFilter]);
 
     // Merged thoughts: robot + all critters, sorted by timestamp
     const allThoughts = useMemo(() => {
@@ -284,8 +308,189 @@ export const Interface = () => {
                 </div>
             </div>
 
+            {/* Score Panel (Top Right, below settings) */}
+            <div className="absolute top-20 right-4 pointer-events-auto z-50">
+                <div className="px-5 py-4 bg-white/85 backdrop-blur-lg rounded-2xl shadow-xl border border-white/40 min-w-[280px]">
+                    {/* Total Score & Rank */}
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                            <Award size={20} className="text-yellow-500" />
+                            <span className="text-3xl font-black text-gray-900 tracking-tight">
+                                {realtimeScore.current.total.toLocaleString()}
+                            </span>
+                        </div>
+                        <div className={clsx(
+                            "px-3 py-1.5 rounded-lg font-black text-lg shadow-md",
+                            realtimeScore.rank.current === 'SS' ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' :
+                            realtimeScore.rank.current === 'S' ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white' :
+                            realtimeScore.rank.current === 'A' ? 'bg-blue-500 text-white' :
+                            realtimeScore.rank.current === 'B' ? 'bg-green-500 text-white' :
+                            realtimeScore.rank.current === 'C' ? 'bg-gray-500 text-white' :
+                            'bg-gray-400 text-white'
+                        )}>
+                            {realtimeScore.rank.current}
+                        </div>
+                    </div>
+
+                    {/* Progress to Next Rank */}
+                    {realtimeScore.rank.nextRank && (
+                        <div className="mb-3">
+                            <div className="flex justify-between text-[10px] font-bold text-gray-500 mb-1">
+                                <span>Next: {realtimeScore.rank.nextRank}</span>
+                                <span>{realtimeScore.rank.pointsToNext.toLocaleString()} pts</span>
+                            </div>
+                            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div
+                                    className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500"
+                                    style={{ width: `${realtimeScore.rank.progress}%` }}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Score Breakdown */}
+                    <div className="space-y-1.5 text-xs">
+                        <div className="flex justify-between items-center">
+                            <span className="text-gray-600 font-medium">🛡️ Survival</span>
+                            <span className="font-bold text-green-600">{realtimeScore.current.survival.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-gray-600 font-medium">🏗️ Development</span>
+                            <span className="font-bold text-blue-600">{realtimeScore.current.development.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-gray-600 font-medium">⚔️ Combat</span>
+                            <span className="font-bold text-red-600">{realtimeScore.current.combat.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-gray-600 font-medium">📚 Knowledge</span>
+                            <span className="font-bold text-purple-600">{realtimeScore.current.knowledge.toLocaleString()}</span>
+                        </div>
+                    </div>
+
+                    {/* Quick Stats */}
+                    <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-between text-[10px] font-bold text-gray-500">
+                        <span>👥 Pop: {realtimeScore.stats.population}</span>
+                        <span>💀 Deaths: {realtimeScore.stats.deathCount}</span>
+                        <span>🏛️ Buildings: {realtimeScore.stats.structureCount}</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Robot Status Panel (Below Environment Panel) */}
+            <div className="absolute top-[180px] left-4 pointer-events-auto z-50">
+                <div className="px-4 py-3 bg-white/85 backdrop-blur-lg rounded-2xl shadow-xl border border-white/40 min-w-[180px]">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Wrench size={14} className="text-orange-500" />
+                        <span className="text-xs font-bold text-gray-700">Unit-01 Status</span>
+                    </div>
+
+                    {/* Battery */}
+                    <div className="mb-2">
+                        <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-1">
+                                <Battery size={12} className={robotStatus.battery > 20 ? 'text-green-500' : 'text-red-500'} />
+                                <span className="text-[10px] font-medium text-gray-600">Battery</span>
+                            </div>
+                            <span className="text-[10px] font-bold text-gray-900">{robotStatus.battery.toFixed(0)}%</span>
+                        </div>
+                        <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                            <div
+                                className={clsx(
+                                    "h-full transition-all",
+                                    robotStatus.battery > 50 ? 'bg-green-500' :
+                                    robotStatus.battery > 20 ? 'bg-yellow-500' :
+                                    'bg-red-500'
+                                )}
+                                style={{ width: `${robotStatus.battery}%` }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Durability */}
+                    <div className="mb-2">
+                        <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] font-medium text-gray-600">⚙️ Durability</span>
+                            <span className="text-[10px] font-bold text-gray-900">{robotStatus.durability.toFixed(0)}%</span>
+                        </div>
+                        <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                            <div
+                                className={clsx(
+                                    "h-full transition-all",
+                                    robotStatus.durability > 50 ? 'bg-blue-500' :
+                                    robotStatus.durability > 20 ? 'bg-yellow-500' :
+                                    'bg-red-500'
+                                )}
+                                style={{ width: `${robotStatus.durability}%` }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Temperature */}
+                    <div className="flex items-center justify-between text-[10px]">
+                        <span className="font-medium text-gray-600">🌡️ Internal Temp</span>
+                        <span className={clsx(
+                            "font-bold",
+                            robotStatus.temperature < 0 || robotStatus.temperature > 40 ? 'text-red-600' :
+                            robotStatus.temperature < 10 || robotStatus.temperature > 30 ? 'text-yellow-600' :
+                            'text-green-600'
+                        )}>
+                            {robotStatus.temperature.toFixed(1)}°C
+                        </span>
+                    </div>
+
+                    {/* Status Warnings */}
+                    {(robotStatus.malfunctioning || robotStatus.overheated || robotStatus.frozen) && (
+                        <div className="mt-2 pt-2 border-t border-gray-200 space-y-1">
+                            {robotStatus.malfunctioning && (
+                                <div className="text-[9px] font-bold text-red-600 flex items-center gap-1">
+                                    ⚠️ MALFUNCTIONING
+                                </div>
+                            )}
+                            {robotStatus.overheated && (
+                                <div className="text-[9px] font-bold text-orange-600 flex items-center gap-1">
+                                    🔥 OVERHEATED
+                                </div>
+                            )}
+                            {robotStatus.frozen && (
+                                <div className="text-[9px] font-bold text-blue-600 flex items-center gap-1">
+                                    ❄️ FROZEN
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Inventory Panel (Below Robot Status) */}
+            <div className="absolute top-[380px] left-4 pointer-events-auto z-50">
+                <div className="px-4 py-3 bg-white/85 backdrop-blur-lg rounded-2xl shadow-xl border border-white/40 min-w-[180px]">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Package size={14} className="text-blue-500" />
+                        <span className="text-xs font-bold text-gray-700">Inventory</span>
+                    </div>
+
+                    <div className="space-y-1.5 text-[10px]">
+                        {Object.entries(inventory).length === 0 ? (
+                            <div className="text-gray-400 text-center py-2">Empty</div>
+                        ) : (
+                            Object.entries(inventory)
+                                .filter(([, amount]) => amount > 0)
+                                .map(([item, amount]) => (
+                                    <div key={item} className="flex justify-between items-center">
+                                        <span className="text-gray-600 font-medium capitalize">
+                                            {item.replace(/_/g, ' ')}
+                                        </span>
+                                        <span className="font-bold text-gray-900">×{amount}</span>
+                                    </div>
+                                ))
+                        )}
+                    </div>
+                </div>
+            </div>
+
             {/* Thought Log Panel (Left side) */}
-            <div className="absolute top-48 left-4 pointer-events-auto z-40">
+            <div className="absolute top-48 left-4 pointer-events-auto z-40 hidden">
                 <button
                     onClick={() => setIsThoughtPanelOpen(!isThoughtPanelOpen)}
                     className="flex items-center gap-1.5 px-3 py-2 bg-white/85 backdrop-blur-lg rounded-xl shadow-lg border border-white/40 text-xs font-bold text-gray-600 hover:bg-white/95 transition-colors"
@@ -356,6 +561,86 @@ export const Interface = () => {
                         </div>
                     </div>
                 )}
+            </div>
+
+            {/* Activity Log Panel (Bottom Left) */}
+            <div className="absolute bottom-6 left-6 pointer-events-auto z-40 w-[380px]">
+                <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-white/40 overflow-hidden max-h-[40vh] flex flex-col">
+                    {/* Header with Filters */}
+                    <div className="px-3 py-2 bg-gradient-to-r from-green-50 to-blue-50 border-b border-gray-100">
+                        <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                                <Activity size={14} className="text-green-600" />
+                                <span className="text-xs font-bold text-gray-700">Activity Log</span>
+                            </div>
+                            <span className="text-[10px] font-bold text-gray-400">
+                                {filteredLog.length} events
+                            </span>
+                        </div>
+                        {/* Filter Buttons */}
+                        <div className="flex gap-1 overflow-x-auto scrollbar-thin">
+                            {(['all', 'thought', 'event', 'discovery', 'combat', 'death', 'build', 'warning'] as const).map(filter => (
+                                <button
+                                    key={filter}
+                                    onClick={() => setLogFilter(filter)}
+                                    className={clsx(
+                                        "px-2 py-0.5 rounded text-[9px] font-bold whitespace-nowrap transition-colors uppercase tracking-wide",
+                                        logFilter === filter
+                                            ? "bg-green-500 text-white"
+                                            : "bg-white text-gray-500 hover:bg-gray-100"
+                                    )}
+                                >
+                                    {filter}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Log Entries */}
+                    <div className="overflow-y-auto p-2 space-y-1 scrollbar-thin scrollbar-thumb-gray-200 max-h-[calc(40vh-80px)]">
+                        {filteredLog.length === 0 && (
+                            <div className="text-center text-gray-400 text-xs py-4">
+                                No activity yet
+                            </div>
+                        )}
+                        {filteredLog.slice(-20).reverse().map((entry, i) => (
+                            <div
+                                key={`${entry.timestamp}-${i}`}
+                                className={clsx(
+                                    "px-2.5 py-1.5 rounded-lg text-xs border",
+                                    entry.category === 'warning' ? 'bg-red-50 border-red-200' :
+                                    entry.category === 'death' ? 'bg-gray-100 border-gray-300' :
+                                    entry.category === 'combat' ? 'bg-orange-50 border-orange-200' :
+                                    entry.category === 'discovery' ? 'bg-purple-50 border-purple-200' :
+                                    entry.category === 'build' ? 'bg-blue-50 border-blue-200' :
+                                    entry.category === 'thought' ? 'bg-yellow-50 border-yellow-200' :
+                                    'bg-white border-gray-200'
+                                )}
+                            >
+                                <div className="flex items-start gap-1.5">
+                                    <span className={clsx(
+                                        "text-[9px] font-bold uppercase tracking-wide shrink-0",
+                                        entry.category === 'warning' ? 'text-red-600' :
+                                        entry.category === 'death' ? 'text-gray-600' :
+                                        entry.category === 'combat' ? 'text-orange-600' :
+                                        entry.category === 'discovery' ? 'text-purple-600' :
+                                        entry.category === 'build' ? 'text-blue-600' :
+                                        entry.category === 'thought' ? 'text-yellow-700' :
+                                        'text-gray-600'
+                                    )}>
+                                        [{entry.category}]
+                                    </span>
+                                    <span className="text-gray-700 leading-tight flex-1">{entry.content}</span>
+                                </div>
+                                {entry.gameTime && (
+                                    <div className="text-[9px] font-mono text-gray-400 mt-0.5">
+                                        {entry.gameTime}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
             </div>
 
             {/* Header / Settings Buttons (Global Top Right) */}
